@@ -2,6 +2,7 @@ from typing import Optional, Tuple
 
 from django.core.exceptions import ValidationError
 from django.db.models import Count
+from django.db import transaction
 
 from correlation.log import log_event
 
@@ -14,16 +15,6 @@ class ActivityNotFoundError(Exception):
 
 class CapacityExhaustedError(Exception):
     pass
-
-
-def get_demo_participant(participant_id: Optional[str]) -> Optional[Participant]:
-    if not participant_id:
-        return None
-
-    try:
-        return Participant.objects.get(id=participant_id)
-    except (Participant.DoesNotExist, ValidationError, ValueError):
-        return None
 
 
 def get_activities_with_availability():
@@ -57,9 +48,11 @@ def activity_exists(activity_id) -> bool:
     return Activity.objects.filter(id=activity_id).exists()
 
 
+@transaction.atomic
 def create_or_get_enrollment(
     activity, participant
 ) -> Tuple[Enrollment, bool]:
+    activity = Activity.objects.select_for_update().get(pk=activity.pk)
     enrollment = Enrollment.objects.filter(
         activity=activity, participant=participant
     ).first()
@@ -92,7 +85,9 @@ def create_or_get_enrollment(
     return enrollment, True
 
 
+@transaction.atomic
 def delete_enrollment_if_exists(activity_id, participant) -> None:
+    Activity.objects.select_for_update().get(pk=activity_id)
     deleted_count, _ = Enrollment.objects.filter(
         activity=activity_id, participant=participant
     ).delete()

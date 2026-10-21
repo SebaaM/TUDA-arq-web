@@ -6,6 +6,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .models import Activity, Enrollment, Participant
+from .test_helpers import bearer_for
 
 
 class ActivityContractTests(TestCase):
@@ -72,7 +73,7 @@ class EnrollmentIdempotencyTests(TestCase):
                 "activities:api-enrollment-confirm",
                 args=[(activity or self.activity).id],
             ),
-            HTTP_X_PARTICIPANT_ID=str((participant or self.participant).id),
+            HTTP_AUTHORIZATION=bearer_for((participant or self.participant)),
             content_type="application/json",
         )
 
@@ -106,14 +107,14 @@ class EnrollmentIdempotencyTests(TestCase):
 
         first = self.client.delete(
             reverse("activities:api-enrollment-confirm", args=[self.activity.id]),
-            HTTP_X_PARTICIPANT_ID=str(self.participant.id),
+            HTTP_AUTHORIZATION=bearer_for(self.participant),
         )
         self.assertEqual(first.status_code, 204)
         self.assertEqual(Enrollment.objects.filter(activity=self.activity).count(), 0)
 
         second = self.client.delete(
             reverse("activities:api-enrollment-confirm", args=[self.activity.id]),
-            HTTP_X_PARTICIPANT_ID=str(self.participant.id),
+            HTTP_AUTHORIZATION=bearer_for(self.participant),
         )
         self.assertEqual(second.status_code, 204)
         self.assertEqual(Enrollment.objects.filter(activity=self.activity).count(), 0)
@@ -134,7 +135,7 @@ class CapacityTests(TestCase):
 
         response = self.client.put(
             reverse("activities:api-enrollment-confirm", args=[self.activity.id]),
-            HTTP_X_PARTICIPANT_ID=str(self.maria.id),
+            HTTP_AUTHORIZATION=bearer_for(self.maria),
             content_type="application/json",
         )
 
@@ -149,12 +150,12 @@ class CapacityTests(TestCase):
         Enrollment.objects.create(activity=self.activity, participant=self.juan)
         self.client.delete(
             reverse("activities:api-enrollment-confirm", args=[self.activity.id]),
-            HTTP_X_PARTICIPANT_ID=str(self.juan.id),
+            HTTP_AUTHORIZATION=bearer_for(self.juan),
         )
 
         response = self.client.put(
             reverse("activities:api-enrollment-confirm", args=[self.activity.id]),
-            HTTP_X_PARTICIPANT_ID=str(self.maria.id),
+            HTTP_AUTHORIZATION=bearer_for(self.maria),
             content_type="application/json",
         )
 
@@ -198,7 +199,7 @@ class AuthenticationAndMethodTests(TestCase):
                 "activities:api-enrollment-confirm",
                 args=["00000000-0000-0000-0000-000000000000"],
             ),
-            HTTP_X_PARTICIPANT_ID=str(self.participant.id),
+            HTTP_AUTHORIZATION=bearer_for(self.participant),
             content_type="application/json",
         )
 
@@ -208,7 +209,7 @@ class AuthenticationAndMethodTests(TestCase):
     def test_unsupported_method_is_405_with_allow_header(self):
         response = self.client.post(
             reverse("activities:api-enrollment-confirm", args=[self.activity.id]),
-            HTTP_X_PARTICIPANT_ID=str(self.participant.id),
+            HTTP_AUTHORIZATION=bearer_for(self.participant),
         )
 
         self.assertEqual(response.status_code, 405)

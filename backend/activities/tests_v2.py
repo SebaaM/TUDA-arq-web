@@ -6,6 +6,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .models import Activity, Enrollment, Participant
+from .test_helpers import bearer_for
 
 
 def v2_url(name, *args):
@@ -81,7 +82,7 @@ class V2EnrollmentIdempotencyTests(TestCase):
     def _put(self):
         return self.client.put(
             v2_url("api-enrollment-confirm-v2", self.activity.id),
-            HTTP_X_PARTICIPANT_ID=str(self.participant.id),
+            HTTP_AUTHORIZATION=bearer_for(self.participant),
             content_type="application/json",
         )
 
@@ -102,20 +103,26 @@ class V2EnrollmentIdempotencyTests(TestCase):
 
         first = self.client.delete(
             v2_url("api-enrollment-confirm-v2", self.activity.id),
-            HTTP_X_PARTICIPANT_ID=str(self.participant.id),
+            HTTP_AUTHORIZATION=bearer_for(self.participant),
         )
         self.assertEqual(first.status_code, 204)
         self.assertEqual(Enrollment.objects.filter(activity=self.activity).count(), 0)
 
         second = self.client.delete(
             v2_url("api-enrollment-confirm-v2", self.activity.id),
-            HTTP_X_PARTICIPANT_ID=str(self.participant.id),
+            HTTP_AUTHORIZATION=bearer_for(self.participant),
         )
         self.assertEqual(second.status_code, 204)
         self.assertEqual(Enrollment.objects.filter(activity=self.activity).count(), 0)
 
 
 class V2ActivityCreationTests(TestCase):
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        user = get_user_model().objects.create_user(username="staff", is_staff=True)
+        participant = Participant.objects.create(name="Staff", user=user)
+        self.client.defaults["HTTP_AUTHORIZATION"] = bearer_for(participant)
+
     def test_post_creates_a_v2_activity(self):
         response = self.client.post(
             v2_url("api-activity-list-v2"),
@@ -182,12 +189,12 @@ class V2ErrorConsistencyTests(TestCase):
 
         v2_response = self.client.put(
             v2_url("api-enrollment-confirm-v2", self.activity.id),
-            HTTP_X_PARTICIPANT_ID=str(self.maria.id),
+            HTTP_AUTHORIZATION=bearer_for(self.maria),
             content_type="application/json",
         )
         v1_response = self.client.put(
             reverse("activities:api-enrollment-confirm", args=[self.activity.id]),
-            HTTP_X_PARTICIPANT_ID=str(self.maria.id),
+            HTTP_AUTHORIZATION=bearer_for(self.maria),
             content_type="application/json",
         )
 
@@ -254,14 +261,14 @@ class CoexistenceTests(TestCase):
                 "activities:api-enrollment-confirm",
                 args=[self.activity.id],
             ),
-            HTTP_X_PARTICIPANT_ID=str(self.participant.id),
+            HTTP_AUTHORIZATION=bearer_for(self.participant),
             content_type="application/json",
         )
         self.assertEqual(first.status_code, 201)
 
         repeated = self.client.put(
             v2_url("api-enrollment-confirm-v2", self.activity.id),
-            HTTP_X_PARTICIPANT_ID=str(self.participant.id),
+            HTTP_AUTHORIZATION=bearer_for(self.participant),
             content_type="application/json",
         )
         self.assertEqual(repeated.status_code, 200)
@@ -271,7 +278,7 @@ class CoexistenceTests(TestCase):
     def test_delete_across_versions_reaches_same_final_state(self):
         self.client.put(
             v2_url("api-enrollment-confirm-v2", self.activity.id),
-            HTTP_X_PARTICIPANT_ID=str(self.participant.id),
+            HTTP_AUTHORIZATION=bearer_for(self.participant),
             content_type="application/json",
         )
 
@@ -280,13 +287,13 @@ class CoexistenceTests(TestCase):
                 "activities:api-enrollment-confirm",
                 args=[self.activity.id],
             ),
-            HTTP_X_PARTICIPANT_ID=str(self.participant.id),
+            HTTP_AUTHORIZATION=bearer_for(self.participant),
         )
         self.assertEqual(first.status_code, 204)
 
         second = self.client.delete(
             v2_url("api-enrollment-confirm-v2", self.activity.id),
-            HTTP_X_PARTICIPANT_ID=str(self.participant.id),
+            HTTP_AUTHORIZATION=bearer_for(self.participant),
         )
         self.assertEqual(second.status_code, 204)
         self.assertEqual(Enrollment.objects.filter(activity=self.activity).count(), 0)

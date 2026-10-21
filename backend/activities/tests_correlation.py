@@ -10,6 +10,7 @@ from django.utils import timezone
 from correlation.log import logger as trace_logger
 
 from .models import Activity, Enrollment, Participant
+from .test_helpers import bearer_for
 
 CORRELATION_HEADER = "X-Correlation-ID"
 STABLE_KEYS = {
@@ -109,7 +110,7 @@ class CorrelationEnrollmentFlowTests(TestCase):
     def _put(self, url_name="activities:api-enrollment-confirm"):
         return self.client.put(
             reverse(url_name, args=[self.activity.id]),
-            HTTP_X_PARTICIPANT_ID=str(self.participant.id),
+            HTTP_AUTHORIZATION=bearer_for(self.participant),
             HTTP_X_CORRELATION_ID="demo-42",
             content_type="application/json",
         )
@@ -147,7 +148,7 @@ class CorrelationEnrollmentFlowTests(TestCase):
     def test_cancel_flow_emits_enrollment_cancelled(self):
         self.client.put(
             _v1_put_url(self.activity.id),
-            HTTP_X_PARTICIPANT_ID=str(self.participant.id),
+            HTTP_AUTHORIZATION=bearer_for(self.participant),
             HTTP_X_CORRELATION_ID="demo-42",
             content_type="application/json",
         )
@@ -155,7 +156,7 @@ class CorrelationEnrollmentFlowTests(TestCase):
         with self.assertLogs(trace_logger.name, level="INFO") as logs:
             response = self.client.delete(
                 _v1_put_url(self.activity.id),
-                HTTP_X_PARTICIPANT_ID=str(self.participant.id),
+                HTTP_AUTHORIZATION=bearer_for(self.participant),
                 HTTP_X_CORRELATION_ID="demo-42",
             )
 
@@ -177,7 +178,7 @@ class CorrelationEnrollmentFlowTests(TestCase):
         with self.assertLogs(trace_logger.name, level="INFO") as logs:
             response = self.client.put(
                 _v1_put_url(activity.id),
-                HTTP_X_PARTICIPANT_ID=str(otra.id),
+                HTTP_AUTHORIZATION=bearer_for(otra),
                 HTTP_X_CORRELATION_ID="cupo-409",
                 content_type="application/json",
             )
@@ -276,7 +277,7 @@ class CorrelationV2ContractTests(TestCase):
         with self.assertLogs(trace_logger.name, level="INFO") as logs:
             response = self.client.put(
                 _v2_put_url(self.activity.id),
-                HTTP_X_PARTICIPANT_ID=str(self.participant.id),
+                HTTP_AUTHORIZATION=bearer_for(self.participant),
                 HTTP_X_CORRELATION_ID="v2-demo",
                 content_type="application/json",
             )

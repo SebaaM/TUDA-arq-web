@@ -6,6 +6,7 @@ from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_sche
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 
 from correlation.log import log_event
 
@@ -26,22 +27,9 @@ from .services import (
     delete_enrollment_if_exists,
     get_activities_with_availability,
     get_activity_or_404,
-    get_demo_participant,
 )
 
 
-DEMO_PARTICIPANT_HEADER = "X-Participant-ID"
-
-PARTICIPANT_HEADER = OpenApiParameter(
-    name=DEMO_PARTICIPANT_HEADER,
-    type=str,
-    location=OpenApiParameter.HEADER,
-    required=True,
-    description=(
-        "UUID del participante de demostración. Se usa como identidad de "
-        "laboratorio; no es autenticación real."
-    ),
-)
 ACTIVITY_ID_PARAMETER = OpenApiParameter(
     name="activity_id",
     type=OpenApiTypes.UUID,
@@ -106,10 +94,13 @@ def participant_not_found_error() -> Response:
 
 
 def authenticate_participant(request):
-    participant = get_demo_participant(request.headers.get(DEMO_PARTICIPANT_HEADER))
+    participant = getattr(request.user, "participant", None)
     if participant is None:
         log_event("participant_auth_checked", result="missing")
-        return None, authentication_error()
+        return None, error(
+            "participant_not_linked", "La cuenta no tiene un participante asociado.",
+            status.HTTP_403_FORBIDDEN,
+        )
     log_event("participant_auth_checked", result="ok")
     return participant, None
 
@@ -203,15 +194,14 @@ class ParticipantDetailView(APIView):
 
 
 class EnrollmentListView(APIView):
+    permission_classes = [IsAuthenticated]
     @extend_schema(
         operation_id="listMyEnrollments",
         summary="Listar mis inscripciones",
         description=(
-            "Lista las inscripciones del participante indicado por "
-            "X-Participant-ID."
+            "Lista las inscripciones del participante autenticado mediante JWT."
         ),
         tags=["Enrollments"],
-        parameters=[PARTICIPANT_HEADER],
         responses={
             200: EnrollmentSerializer(many=True),
             401: ErrorSerializer,
@@ -228,12 +218,13 @@ class EnrollmentListView(APIView):
 
 
 class ActivityEnrollmentView(APIView):
+    permission_classes = [IsAuthenticated]
     @extend_schema(
         operation_id="putMyEnrollment",
         summary="Inscribirse en una actividad",
         description="Crea la inscripción (201) o devuelve la existente (200) si se repite.",
         tags=["Enrollments"],
-        parameters=[ACTIVITY_ID_PARAMETER, PARTICIPANT_HEADER],
+        parameters=[ACTIVITY_ID_PARAMETER],
         request=None,
         responses={
             200: EnrollmentSerializer,
@@ -269,7 +260,7 @@ class ActivityEnrollmentView(APIView):
         summary="Cancelar mi inscripción",
         description="Elimina la inscripción (204). Una repetición también responde 204.",
         tags=["Enrollments"],
-        parameters=[ACTIVITY_ID_PARAMETER, PARTICIPANT_HEADER],
+        parameters=[ACTIVITY_ID_PARAMETER],
         request=None,
         responses={
             204: NO_CONTENT,
@@ -321,6 +312,9 @@ class ActivityEnrollmentView(APIView):
 class ActivityListViewV2(ActivityListView):
     serializer_class = ActivityV2Serializer
 
+    def get_permissions(self):
+        return [IsAdminUser()] if self.request.method == "POST" else [AllowAny()]
+
     def post(self, request):
         serializer = ActivityCreateV2Serializer(data=request.data)
         if not serializer.is_valid():
@@ -356,11 +350,9 @@ class ActivityDetailViewV2(ActivityDetailView):
         operation_id="listMyEnrollmentsV2",
         summary="Listar mis inscripciones (contrato v2)",
         description=(
-            "Lista las inscripciones del participante indicado por "
-            "X-Participant-ID."
+            "Lista las inscripciones del participante autenticado mediante JWT."
         ),
         tags=["Enrollments"],
-        parameters=[PARTICIPANT_HEADER],
         responses={
             200: EnrollmentSerializer(many=True),
             401: ErrorSerializer,
@@ -378,7 +370,7 @@ class EnrollmentListViewV2(EnrollmentListView):
         summary="Inscribirse en una actividad (contrato v2)",
         description="Crea la inscripción (201) o devuelve la existente (200) si se repite.",
         tags=["Enrollments"],
-        parameters=[ACTIVITY_ID_PARAMETER, PARTICIPANT_HEADER],
+        parameters=[ACTIVITY_ID_PARAMETER],
         request=None,
         responses={
             200: EnrollmentSerializer,
@@ -394,7 +386,7 @@ class EnrollmentListViewV2(EnrollmentListView):
         summary="Cancelar mi inscripción (contrato v2)",
         description="Elimina la inscripción (204). Una repetición también responde 204.",
         tags=["Enrollments"],
-        parameters=[ACTIVITY_ID_PARAMETER, PARTICIPANT_HEADER],
+        parameters=[ACTIVITY_ID_PARAMETER],
         request=None,
         responses={
             204: NO_CONTENT,
