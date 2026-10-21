@@ -38,3 +38,22 @@ Con .env.example, check --deploy emite cuatro advertencias relacionadas con HTTP
 Estas advertencias no se silenciaron. La plantilla y la guía distinguen evaluación local de un despliegue público con secretos propios y HTTPS. Los límites de revocación de access, ausencia de rotación y logout por sesión están documentados en README y API.md.
 
 Los resultados describen esta ejecución y pueden reproducirse con los comandos de docs/hito-2-evaluacion.md.
+
+## Revisión de README y cuentas en los scripts de arranque
+
+Se contrastaron los tres README modificados con la versión anterior al cambio documental del Hito 2 (`0a7d730`). Se recuperaron el arranque automático para Windows/macOS/Linux, los pasos manuales, la ejecución local sin contenedores de aplicación, las topologías, el checkpoint Gunicorn, el versionado de API, el contexto didáctico y la documentación detallada de trazabilidad. El README del frontend conserva además las referencias de su plantilla original, diferenciadas de la configuración efectiva.
+
+Los scripts ahora ejecutan `seed_evaluation` después de la carga histórica protegida. La muestra histórica sigue limitada al caso en que las tres tablas de dominio están vacías. `-SinDatos` y `--sin-datos` omiten también la creación o el restablecimiento de cuentas.
+
+Validación realizada en Windows, en el proyecto Compose aislado `hito2-arranque-verificacion`, con un volumen nuevo y sin usar las bases originales:
+
+- Sintaxis de PowerShell y `bash -n` aprobadas.
+- `iniciar.ps1` construyó, migró y levantó la topología objetivo, cargó tres actividades y siete inscripciones de muestra y preparó las tres cuentas locales.
+- `iniciar.sh --sin-build`, ejecutado mediante Git Bash con Docker Desktop, detectó los datos existentes, omitió las semillas destructivas y preparó las mismas cuentas. No se verificó el inicio del motor Docker en macOS/Linux nativos.
+- Se comprobaron contraseñas válidas, participante asociado para cada cuenta y permiso staff de `docente`.
+- La comparación de ID, actividad, participante y `enrolled_at` confirmó que las siete inscripciones permanecieron idénticas entre ejecuciones.
+- Las variantes `-SinBuild -SinDatos` y `--sin-build --sin-datos` no modificaron las inscripciones ni los hashes de contraseña.
+- La suite backend volvió a aprobar sus 64 tests en PostgreSQL, y la prueba HTTP por Nginx pasó con las cuentas creadas por los scripts.
+- `pnpm format`, `pnpm lint`, `pnpm test` (8 tests) y `pnpm build` aprobados. Los enlaces locales y bloques de código de los README se comprobaron, junto con `git diff --check`.
+
+El entorno temporal se retira al finalizar la validación; los volúmenes originales no se modifican. La restauración de documentación no incorpora la carpeta experimental.

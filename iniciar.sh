@@ -17,7 +17,7 @@ usage() {
         'Uso: bash iniciar.sh [opciones]' \
         '  --modo objetivo|desarrollo  Objetivo usa Nginx; desarrollo usa Vite.' \
         '  --sin-build                 Reutiliza las imagenes existentes.' \
-        '  --sin-datos                 Omite la carga inicial de ejemplo.' \
+        '  --sin-datos                 Omite la muestra y las cuentas de evaluacion.' \
         '  -h, --help                  Muestra esta ayuda.'
 }
 
@@ -153,6 +153,11 @@ with transaction.atomic():
         call_command('seed_participants_and_enrollments')
         print('Base nueva: actividades, participantes e inscripciones cargados.')
 PY
+
+    # Crea o vincula las cuentas JWT por UUID sin borrar inscripciones existentes.
+    # Este paso explicito restablece las contrasenas locales documentadas en README.md.
+    "${compose[@]}" exec -T api python manage.py seed_evaluation
+    printf 'Cuentas locales de evaluacion preparadas: juan, maria y docente. Ver credenciales en README.md.\n'
 fi
 
 # Espera HTTP 200 en cada URL; curl limita el tiempo de cada peticion a cinco segundos.

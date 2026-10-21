@@ -2,7 +2,7 @@
 
 ## Preparación
 
-Seguir el README raíz. Ejecutar seed_evaluation explícitamente. Usuarios: juan y maria (participantes), docente (staff). Contraseña local de todos: Evaluacion2026!.
+Seguir el README raíz. Con arranque manual, ejecutar `seed_evaluation` explícitamente; `iniciar.ps1` e `iniciar.sh` ya lo ejecutan salvo con `-SinDatos` / `--sin-datos`. Este paso crea o vincula las cuentas y restablece sus contraseñas locales sin borrar inscripciones. Usuarios: juan y maria (participantes), docente (staff). Contraseña local de todos: Evaluacion2026!.
 
 La interfaz objetivo abre en http://localhost. Las verificaciones siguientes pueden repetirse en desarrollo desde http://localhost:5173. Usar siempre el mismo hostname para conservar cookies.
 

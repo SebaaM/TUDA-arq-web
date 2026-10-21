@@ -19,7 +19,7 @@ param(
     # Reutiliza las imagenes existentes en lugar de reconstruirlas.
     [switch]$SinBuild,
 
-    # Permite iniciar sin cargar los datos de demostracion, incluso en una base vacia.
+    # Omite tanto la muestra historica como las cuentas locales de evaluacion.
     [switch]$SinDatos
 )
 
@@ -142,6 +142,11 @@ with transaction.atomic():
         # Envia el codigo por stdin para conservar comillas y saltos de linea en Windows.
         $seedCode | & docker @composeArguments exec -T api python manage.py shell
         if ($LASTEXITCODE -ne 0) { throw 'Fallo la inicializacion de los datos de demostracion.' }
+
+        # Crea o vincula las cuentas JWT por UUID sin borrar datos existentes.
+        # Es una inicializacion local explicita: restablece las contrasenas de evaluacion.
+        Invoke-Docker -DockerArguments ($composeArguments + @('exec', '-T', 'api', 'python', 'manage.py', 'seed_evaluation'))
+        Write-Host 'Cuentas locales de evaluacion preparadas: juan, maria y docente. Ver credenciales en README.md.'
     }
 
     # Comprueba tanto React como la API a traves de la entrada publica del modo elegido.
