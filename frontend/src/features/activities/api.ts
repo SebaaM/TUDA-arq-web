@@ -1,33 +1,32 @@
 import type {
   Activity,
   CreateActivityPayload,
+  Enrollment,
 } from "@source/features/activities/types";
-
-type ApiErrorResponse = {
-  message?: string;
-};
-
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
-    headers: {
-      "Content-Type": "application/json",
-      ...init?.headers,
-    },
-    ...init,
-  });
-
-  if (!response.ok) {
-    const body = (await response
-      .json()
-      .catch(() => null)) as ApiErrorResponse | null;
-    throw new Error(body?.message ?? "No se pudo completar la solicitud.");
-  }
-
-  return response.json() as Promise<T>;
-}
+import { request } from "@source/lib/http";
 
 export function getActivities(): Promise<Activity[]> {
   return request<Activity[]>("/api/v2/activities/");
+}
+
+export function getMyEnrollments(): Promise<Enrollment[]> {
+  return request<Enrollment[]>("/api/v2/me/enrollments/", {}, true);
+}
+
+export function enroll(activityId: string): Promise<Enrollment> {
+  return request<Enrollment>(
+    `/api/v2/me/enrollments/${activityId}/`,
+    { method: "PUT" },
+    true,
+  );
+}
+
+export function cancelEnrollment(activityId: string): Promise<void> {
+  return request<void>(
+    `/api/v2/me/enrollments/${activityId}/`,
+    { method: "DELETE" },
+    true,
+  );
 }
 
 export function getActivity(activityId: string): Promise<Activity> {
@@ -37,8 +36,12 @@ export function getActivity(activityId: string): Promise<Activity> {
 export function createActivity(
   payload: CreateActivityPayload,
 ): Promise<Activity> {
-  return request<Activity>("/api/v2/activities/", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+  return request<Activity>(
+    "/api/v2/activities/",
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+    true,
+  );
 }

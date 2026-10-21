@@ -17,3 +17,8 @@ export type CreateActivityPayload = {
   starts_at: string;
   capacity: number;
 };
+
+export type Enrollment = {
+  activity_id: string;
+  enrolled_at: string;
+};

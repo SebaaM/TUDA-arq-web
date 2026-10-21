@@ -32,6 +32,9 @@ import {
 import { Input } from "@source/components/ui/input";
 import { Label } from "@source/components/ui/label";
 import { Skeleton } from "@source/components/ui/skeleton";
+import { AuthControls } from "@source/features/auth";
+import { useAuth } from "@source/features/auth/useAuth";
+import { EnrollmentPanel } from "@source/features/activities/EnrollmentPanel";
 
 const dateFormatter = new Intl.DateTimeFormat("es-AR", {
   dateStyle: "full",
@@ -202,11 +205,13 @@ function CreateActivityDialog({
 
 type ActivityDetailDialogProps = {
   activityId: string;
+  onChanged: () => void;
   onOpenChange: (open: boolean) => void;
 };
 
 function ActivityDetailDialog({
   activityId,
+  onChanged,
   onOpenChange,
 }: ActivityDetailDialogProps) {
   const [activity, setActivity] = useState<Activity | null>(null);
@@ -290,6 +295,13 @@ function ActivityDetailDialog({
             </div>
           </div>
         )}
+        {activity && (
+          <EnrollmentPanel
+            activities={[activity]}
+            selectedActivity={activity}
+            onChanged={onChanged}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -356,6 +368,7 @@ function ActivityCardSkeleton() {
 }
 
 export function ActivitiesPage() {
+  const { user } = useAuth();
   const [activities, setActivities] = useState<Activity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -363,6 +376,7 @@ export function ActivitiesPage() {
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(
     null,
   );
+  const [revision, setRevision] = useState(0);
 
   useEffect(() => {
     getActivities()
@@ -375,7 +389,7 @@ export function ActivitiesPage() {
         );
       })
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [revision]);
 
   function handleCreated(activity: Activity) {
     setActivities((currentActivities) =>
@@ -386,11 +400,11 @@ export function ActivitiesPage() {
   return (
     <main className="min-h-svh bg-background">
       <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:py-12">
-        <nav className="mb-12 flex items-center justify-between border-b border-border/70 pb-4">
+        <nav className="mb-12 flex flex-wrap items-center justify-between gap-4 border-b border-border/70 pb-4">
           <span className="text-sm font-semibold tracking-wide text-foreground">
             TUDA <span className="text-primary">/ ACTIVIDADES</span>
           </span>
-          <Badge variant="outline">API v2</Badge>
+          <AuthControls />
         </nav>
         <header className="mb-8 flex flex-col gap-5 sm:mb-10 sm:flex-row sm:items-end sm:justify-between">
           <div className="max-w-2xl space-y-2">
@@ -405,10 +419,12 @@ export function ActivitiesPage() {
               participar.
             </p>
           </div>
-          <Button onClick={() => setIsCreateOpen(true)}>
-            <Plus className="size-4" aria-hidden="true" />
-            Crear actividad
-          </Button>
+          {user?.is_staff && (
+            <Button onClick={() => setIsCreateOpen(true)}>
+              <Plus className="size-4" aria-hidden="true" />
+              Crear actividad
+            </Button>
+          )}
         </header>
 
         {error && (
@@ -435,7 +451,7 @@ export function ActivitiesPage() {
           <section className="rounded-xl border border-dashed bg-card p-8 text-center shadow-sm">
             <h2 className="font-medium">No hay actividades disponibles</h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              Creá la primera actividad para comenzar.
+              Las actividades publicadas aparecerán acá.
             </p>
           </section>
         )}
@@ -454,16 +470,27 @@ export function ActivitiesPage() {
             ))}
           </section>
         )}
+        <div className="mt-10 rounded-xl border bg-card p-5">
+          <EnrollmentPanel
+            key={revision}
+            activities={activities}
+            onChanged={() => setRevision((value) => value + 1)}
+          />
+        </div>
       </div>
 
-      <CreateActivityDialog
-        open={isCreateOpen}
-        onOpenChange={setIsCreateOpen}
-        onCreated={handleCreated}
-      />
+      {user?.is_staff && (
+        <CreateActivityDialog
+          open={isCreateOpen}
+          onOpenChange={setIsCreateOpen}
+          onCreated={handleCreated}
+        />
+      )}
       {selectedActivityId && (
         <ActivityDetailDialog
+          key={`${selectedActivityId}-${revision}`}
           activityId={selectedActivityId}
+          onChanged={() => setRevision((value) => value + 1)}
           onOpenChange={(open) => {
             if (!open) setSelectedActivityId(null);
           }}
