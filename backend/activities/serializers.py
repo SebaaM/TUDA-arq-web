@@ -3,7 +3,7 @@ from rest_framework import serializers
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema_field
 
-from .models import Activity, Enrollment
+from .models import Activity, Enrollment, Participant
 
 
 class LocalDateTimeField(serializers.DateTimeField):
@@ -84,3 +84,9 @@ class EnrollmentSerializer(serializers.ModelSerializer):
 class ErrorSerializer(serializers.Serializer):
     code = serializers.CharField()
     message = serializers.CharField()
+
+
+class ParticipantSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Participant
+        fields = ("id", "name")

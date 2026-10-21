@@ -1,363 +1,101 @@
-# API de actividades
+# Contrato HTTP — Hito 2
 
-API REST del proyecto TUDA implementada con **Django REST Framework** y documentada con **drf-spectacular**. La especificación OpenAPI y Swagger UI se generan a partir de los serializadores y vistas DRF.
+Base objetivo: `http://localhost`. Desarrollo: `http://localhost:8000` o `http://localhost:5173` mediante proxy Vite.
 
-## Datos básicos
+Swagger: `/api/docs`. Esquema combinado: `/api/openapi.json`; versiones de actividades: `/api/v1/openapi.json` y `/api/v2/openapi.json`.
 
-- **Base URL local:** `http://127.0.0.1:8000`
-- **Versión:** `v1`
-- **Formato:** JSON (`application/json`)
-- **Swagger UI:** `http://127.0.0.1:8000/api/docs`
-- **OpenAPI JSON:** `http://127.0.0.1:8000/api/openapi.json`
+## Autenticación
 
-Los IDs de actividades y participantes son UUID. La identidad de prueba se indica con el encabezado `X-Participant-ID`.
-
-```bash
-BASE_URL="http://127.0.0.1:8000"
-ACTIVITY_ID="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
-PARTICIPANT_ID="bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
-ENROLLMENT_ID=1
-```
-
-## Contrato de respuesta
-
-Las colecciones y la mayoría de los recursos responden con el envoltorio `data` y `error`. En los casos correctos, `error` es `null`; en los errores de estos endpoints, `data` es `null`.
-
-La consulta individual de una actividad conserva su formato original: en éxito devuelve solamente `data` y, si no existe, solamente `error`. La cancelación exitosa devuelve `204 No Content`, sin cuerpo.
-
-## Resumen de endpoints
-
-| Método | Endpoint | Resultado correcto |
+| Método | Ruta | Éxito |
 | --- | --- | --- |
-| `GET` | `/api/v1/activities/` | Lista las actividades y sus cupos disponibles |
-| `GET` | `/api/v1/activities/{activity_id}/` | Obtiene una actividad |
-| `GET` | `/api/v1/participants/` | Lista participantes |
-| `GET` | `/api/v1/participants/{participant_id}/` | Obtiene un participante |
-| `GET` | `/api/v1/me/enrollments/` | Lista las inscripciones del participante del header |
-| `GET` | `/api/v1/me/enrollments/{id}/` | Obtiene una inscripción por su ID numérico |
-| `PUT` | `/api/v1/me/enrollments/{activity_id}/` | Crea o confirma una inscripción |
-| `DELETE` | `/api/v1/me/enrollments/{activity_id}/cancel/` | Cancela una inscripción |
+| GET | /api/auth/csrf/ | 200; establece csrftoken. |
+| POST | /api/auth/login/ | 200; access y user en JSON, refresh en cookie HttpOnly. |
+| POST | /api/auth/refresh/ | 200; nuevo access y user, sin renovar el vencimiento del refresh. |
+| POST | /api/auth/logout/ | 204; blacklist del refresh y eliminación de cookie. |
+| GET | /api/auth/me/ | 200; identidad obtenida del Bearer. |
 
-## 1. Listar actividades
-
-```bash
-curl "$BASE_URL/api/v1/activities/"
-```
-
-Respuesta `200 OK`:
+Login recibe `{"username":"juan","password":"Evaluacion2026!"}`.
+Login y refresh responden:
 
 ```json
 {
-  "data": [
-    {
-      "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-      "title": "Introducción a la arquitectura web",
-      "starts_at": "2026-08-20T10:00:00-03:00",
-      "capacity": 30,
-      "available_slots": 28
-    }
-  ],
-  "error": null
-}
-```
-
-## 2. Obtener una actividad
-
-```bash
-curl "$BASE_URL/api/v1/activities/$ACTIVITY_ID/"
-```
-
-Respuesta `200 OK`:
-
-```json
-{
-  "data": {
-    "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-    "title": "Introducción a la arquitectura web",
-    "starts_at": "2026-08-20T10:00:00-03:00",
-    "capacity": 30,
-    "available_slots": 28
+  "access": "<JWT access>",
+  "user": {
+    "id": 1,
+    "username": "juan",
+    "is_staff": false,
+    "participant": {"id": "<UUID>", "name": "Juan García"}
   }
 }
 ```
 
-Respuesta `404 Not Found`:
+`participant` puede ser null para cuentas históricas sin vínculo; las operaciones de inscripción de esa cuenta responden 403.
+
+Refresh se lee solo de la cookie `refresh_token`: HttpOnly, SameSite=Lax, Path=/api/auth/, sin Domain. Dura 24 horas; Secure se activa mediante configuración para HTTPS. No se devuelve en JSON ni se recibe desde el body. Login/refresh utilizan Cache-Control: no-store.
+
+Antes de POST a login, refresh o logout, obtener csrftoken mediante GET /api/auth/csrf/ y enviarlo en X-CSRFToken con la cookie. Esas rutas comprueban CSRF incluso sin access token. Las operaciones de negocio se autentican mediante Bearer, no mediante la cookie de refresh.
+
+## Actividades
+
+| Método | Ruta | Permiso / éxito |
+| --- | --- | --- |
+| GET | /api/v1/activities/ | Público, 200, lista v1. |
+| GET | /api/v1/activities/{activity_id}/ | Público, 200. |
+| GET | /api/v2/activities/ | Público, 200, lista v2. |
+| GET | /api/v2/activities/{activity_id}/ | Público, 200. |
+| POST | /api/v2/activities/ | Staff autenticado, 201. |
+
+Actividad v1, sin envoltorios:
 
 ```json
-{
-  "error": "Activity not found"
-}
+{"id":"<UUID>","title":"Taller","starts_at":"2026-10-30T18:00:00-03:00","capacity":20,"available_slots":19}
 ```
 
-## 3. Listar participantes
-
-```bash
-curl "$BASE_URL/api/v1/participants/"
-```
-
-Respuesta `200 OK`:
+Actividad v2:
 
 ```json
-{
-  "data": [
-    {
-      "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
-      "name": "Ana García"
-    }
-  ],
-  "error": null
-}
+{"id":"<UUID>","title":"Taller","category":"Tecnología","starts_at":"2026-10-30T18:00:00-03:00","availability":{"capacity":20,"available_slots":19}}
 ```
 
-## 4. Obtener un participante
+Las colecciones son arrays directos. Crear actividad recibe title, category, starts_at ISO 8601 y capacity entero positivo; devuelve la representación v2. Los errores de validación conservan 400/activity_validation_error.
 
-```bash
-curl "$BASE_URL/api/v1/participants/$PARTICIPANT_ID/"
-```
+## Inscripciones propias
 
-Respuesta `200 OK`:
+Las siguientes rutas existen en v1 y v2. Todas requieren `Authorization: Bearer <access>`.
+
+| Método | Ruta | Resultado |
+| --- | --- | --- |
+| GET | /api/{version}/me/enrollments/ | 200; array de inscripciones propias. |
+| PUT | /api/{version}/me/enrollments/{activity_id}/ | 201 nueva o 200 existente. |
+| DELETE | /api/{version}/me/enrollments/{activity_id}/ | 204 sin cuerpo, también al repetir. |
+
+Una inscripción conserva exactamente:
 
 ```json
-{
-  "data": {
-    "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
-    "name": "Ana García"
-  },
-  "error": null
-}
+{"activity_id":"<UUID>","enrolled_at":"2026-10-20T18:00:00-03:00"}
 ```
 
-Respuesta `404 Not Found`:
+PUT no requiere body; conserva enrolled_at al repetir, incluso entre versiones. DELETE no usa /cancel/ ni devuelve JSON. El participante surge de la cuenta validada; headers X-Participant-ID, parámetros o identificadores en el body nunca cambian la identidad.
 
-```json
-{
-  "data": null,
-  "error": "Participant not found"
-}
-```
+Las consultas históricas GET /api/v1/participants/ y /api/v1/participants/{participant_id}/ conservan su comportamiento público; exponen solamente UUID y nombre, no credenciales.
 
-## 5. Listar mis inscripciones
+## Errores y trazabilidad
 
-```bash
-curl -H "X-Participant-ID: $PARTICIPANT_ID" \
-  "$BASE_URL/api/v1/me/enrollments/"
-```
+Los errores usan `{"code":"...","message":"..."}`.
 
-Respuesta `200 OK`:
-
-```json
-{
-  "data": [
-    {
-      "participant": {
-        "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
-        "name": "Ana García"
-      },
-      "activity": {
-        "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-        "title": "Introducción a la arquitectura web",
-        "starts_at": "2026-08-20T10:00:00-03:00",
-        "capacity": 30
-      },
-      "enrolled_at": "2026-08-19T12:30:00-03:00"
-    }
-  ],
-  "error": null
-}
-```
-
-Respuesta `400 Bad Request` si el encabezado falta, no es un UUID válido o no identifica a un participante:
-
-```json
-{
-  "data": null,
-  "error": "Invalid participant identity"
-}
-```
-
-## 6. Obtener una inscripción
-
-```bash
-curl "$BASE_URL/api/v1/me/enrollments/$ENROLLMENT_ID/"
-```
-
-Respuesta `200 OK`:
-
-```json
-{
-  "data": {
-    "participant": {
-      "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
-      "name": "Ana García"
-    },
-    "activity": {
-      "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-      "title": "Introducción a la arquitectura web",
-      "starts_at": "2026-08-20T10:00:00-03:00",
-      "capacity": 30
-    },
-    "enrolled_at": "2026-08-19T12:30:00-03:00"
-  },
-  "error": null
-}
-```
-
-Respuesta `404 Not Found`:
-
-```json
-{
-  "data": null,
-  "error": "Enrollment not found"
-}
-```
-
-## 7. Inscribirse en una actividad
-
-La operación es idempotente: si la inscripción ya existe devuelve la misma representación con `200 OK`, sin crear una fila adicional.
-
-```bash
-curl -X PUT \
-  -H "X-Participant-ID: $PARTICIPANT_ID" \
-  "$BASE_URL/api/v1/me/enrollments/$ACTIVITY_ID/"
-```
-
-Respuesta `201 Created` (o `200 OK` si ya existía):
-
-```json
-{
-  "data": {
-    "participant": {
-      "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
-      "name": "Ana García"
-    },
-    "activity": {
-      "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-      "title": "Introducción a la arquitectura web",
-      "starts_at": "2026-08-20T10:00:00-03:00",
-      "capacity": 30
-    },
-    "enrolled_at": "2026-08-19T12:30:00-03:00"
-  },
-  "error": null
-}
-```
-
-Respuestas de error:
-
-```json
-{
-  "data": null,
-  "error": "Invalid participant identity"
-}
-```
-
-`400 Bad Request`, cuando el encabezado es inválido o falta.
-
-```json
-{
-  "data": null,
-  "error": "Activity not found"
-}
-```
-
-`404 Not Found`, cuando no existe la actividad.
-
-```json
-{
-  "data": null,
-  "error": "Activity capacity exceeded"
-}
-```
-
-`409 Conflict`, cuando no hay cupos disponibles.
-
-## 8. Cancelar una inscripción
-
-```bash
-curl -X DELETE \
-  -H "X-Participant-ID: $PARTICIPANT_ID" \
-  "$BASE_URL/api/v1/me/enrollments/$ACTIVITY_ID/cancel/"
-```
-
-Respuesta `204 No Content`: no contiene cuerpo.
-
-Errores `400 Bad Request` y `404 Not Found`:
-
-```json
-{
-  "data": null,
-  "error": "Invalid participant identity"
-}
-```
-
-```json
-{
-  "data": null,
-  "error": "Activity not found"
-}
-```
-
-```json
-{
-  "data": null,
-  "error": "Enrollment not found"
-}
-```
-
-## Códigos HTTP
-
-| Código | Uso |
+| Estado | Casos / códigos |
 | --- | --- |
-| `200` | Consulta correcta o inscripción existente |
-| `201` | Inscripción creada |
-| `204` | Inscripción cancelada sin cuerpo |
-| `400` | Identidad del participante inválida o ausente |
-| `404` | Actividad, participante o inscripción inexistente |
-| `405` | Método HTTP no permitido |
-| `409` | Capacidad de la actividad agotada |
+| 400 | validation_error o activity_validation_error. |
+| 401 | authentication_required, invalid_credentials, invalid_token, refresh_invalid. |
+| 403 | permission_denied (por ejemplo, crear sin staff), participant_not_linked, csrf_failed. |
+| 404 | activity_not_found, participant_not_found. |
+| 405 | method_not_allowed, conserva Allow. |
+| 409 | capacity_exhausted: no hay lugares disponibles. |
 
-## API v2
+Un Bearer malformado o vencido se rechaza aunque se presente X-Participant-ID. Las respuestas conservan X-Correlation-ID; al enviarlo, el backend lo devuelve sin cambios.
 
-La interfaz React consume la API mediante el proxy de Vite en `/api`. En desarrollo, el destino es `http://127.0.0.1:8000` o el valor de `VITE_PROXY_TARGET`.
+## Logout y límites
 
-### Actividades v2
+Logout es idempotente, requiere CSRF y no necesita un access vigente. El refresh presentado queda en blacklist; reutilizarlo en refresh responde 401. Un access anterior sigue válido hasta expirar a los cinco minutos. No se implementa revocación inmediata de access, logout global ni rotación del refresh.
 
-| Método | Endpoint | Resultado correcto |
-| --- | --- | --- |
-| `GET` | `/api/v2/activities/` | Lista actividades ordenadas por fecha. |
-| `POST` | `/api/v2/activities/` | Crea una actividad y devuelve `201 Created`. |
-| `GET` | `/api/v2/activities/{activity_id}/` | Obtiene el detalle de una actividad. |
-
-La representación v2 agrega `category` y agrupa el cupo en `availability`:
-
-```json
-{
-  "id": "uuid",
-  "title": "Laboratorio de React",
-  "category": "Frontend",
-  "starts_at": "2026-05-12T18:30:00-03:00",
-  "availability": {
-    "capacity": 18,
-    "available_slots": 18
-  }
-}
-```
-
-Para crear una actividad, enviar `title`, `category`, `starts_at` en formato ISO 8601 y `capacity` como entero positivo:
-
-```bash
-curl -X POST http://127.0.0.1:8000/api/v2/activities/ \
-  -H "Content-Type: application/json" \
-  -d '{"title":"Laboratorio de React","category":"Frontend","starts_at":"2026-05-12T18:30:00-03:00","capacity":18}'
-```
-
-Los datos inválidos responden `400` con:
-
-```json
-{
-  "code": "activity_validation_error",
-  "message": "Los datos de la actividad no son válidos."
-}
-```
-
-Los endpoints de inscripciones v2 se mantienen bajo `/api/v2/me/enrollments/` y requieren `X-Participant-ID`.
+Ver [la guía de evaluación](docs/hito-2-evaluacion.md) para probar cookies, expiración, roles y aislamiento entre cuentas.

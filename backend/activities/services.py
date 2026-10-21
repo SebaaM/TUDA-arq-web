@@ -1,4 +1,4 @@
-from typing import Optional, Tuple
+from typing import Tuple
 
 from django.core.exceptions import ValidationError
 from django.db.models import Count
@@ -6,7 +6,7 @@ from django.db import transaction
 
 from correlation.log import log_event
 
-from .models import Activity, Enrollment, Participant
+from .models import Activity, Enrollment
 
 
 class ActivityNotFoundError(Exception):

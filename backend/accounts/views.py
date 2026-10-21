@@ -1,6 +1,5 @@
 from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model
-from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 from django.utils.decorators import method_decorator
 from drf_spectacular.utils import extend_schema
@@ -11,14 +10,19 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .errors import auth_error
-from .serializers import AuthErrorSerializer, CurrentUserSerializer, LoginSerializer, SessionSerializer
+from .serializers import AuthErrorSerializer, AuthMessageSerializer, CurrentUserSerializer, LoginSerializer, SessionSerializer
 
 
-@ensure_csrf_cookie
-def csrf_cookie(request):
-    response = JsonResponse({"message": "CSRF preparado."})
-    response["Cache-Control"] = "no-store"
-    return response
+@method_decorator(ensure_csrf_cookie, name="dispatch")
+class CsrfCookieView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    @extend_schema(responses=AuthMessageSerializer, tags=["Auth"])
+    def get(self, request):
+        response = Response({"message": "CSRF preparado."})
+        response["Cache-Control"] = "no-store"
+        return response
 
 
 def session_response(user, refresh):

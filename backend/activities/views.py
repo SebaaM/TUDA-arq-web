@@ -18,6 +18,7 @@ from .serializers import (
     ActivityV2Serializer,
     EnrollmentSerializer,
     ErrorSerializer,
+    ParticipantSerializer,
 )
 from .services import (
     ActivityNotFoundError,
@@ -51,14 +52,6 @@ NO_CONTENT = OpenApiResponse(description="Inscripción cancelada.")
 
 def error(code: str, message: str, http_status: int) -> Response:
     return Response({"code": code, "message": message}, status=http_status)
-
-
-def authentication_error() -> Response:
-    return error(
-        "authentication_required",
-        "Se requiere una identidad de participante válida.",
-        status.HTTP_401_UNAUTHORIZED,
-    )
 
 
 def activity_not_found_error() -> Response:
@@ -163,7 +156,7 @@ class ParticipantListView(APIView):
         summary="Listar participantes",
         tags=["Participants"],
         responses={
-            200: ActivitySerializer(many=True),
+            200: ParticipantSerializer(many=True),
             405: METHOD_NOT_ALLOWED,
         },
     )
@@ -180,7 +173,7 @@ class ParticipantDetailView(APIView):
         tags=["Participants"],
         parameters=[PARTICIPANT_ID_PARAMETER],
         responses={
-            200: ActivitySerializer(),
+            200: ParticipantSerializer(),
             404: ErrorSerializer,
             405: METHOD_NOT_ALLOWED,
         },
@@ -305,6 +298,8 @@ class ActivityEnrollmentView(APIView):
         responses={
             201: ActivityV2Serializer,
             400: ErrorSerializer,
+            401: ErrorSerializer,
+            403: ErrorSerializer,
             405: METHOD_NOT_ALLOWED,
         },
     ),
