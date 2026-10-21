@@ -142,7 +142,7 @@ pnpm build
 
 También se pueden ejecutar los controles frontend dentro del servicio app de desarrollo.
 
-Consultar [API.md](API.md) para rutas y ejemplos, [la guía de evaluación](docs/hito-2-evaluacion.md) para las evidencias y [la línea base](docs/contracts/README.md) para comparar el contrato anterior.
+Consultar [API.md](API.md) para rutas y ejemplos, [la guía de evaluación](docs/hito-2-evaluacion.md), [los resultados comprobados](docs/hito-2-validacion.md) y [la línea base](docs/contracts/README.md) para comparar el contrato anterior.
 
 ## Persistencia y diagnóstico
 
