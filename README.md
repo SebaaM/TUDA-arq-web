@@ -27,6 +27,8 @@ Abrir [http://localhost/](http://localhost/). Para desarrollar con Vite y recarg
 .\iniciar.ps1 -Modo desarrollo
 ```
 
+En desarrollo, antes de levantar los servicios, el script construye las imágenes (salvo con `-SinBuild`), detiene solo `app` y sincroniza su volumen `node_modules` mediante `pnpm install --frozen-lockfile` con `CI=true`. Así puede actualizar dependencias de otra versión de pnpm o de un lockfile anterior sin pedir confirmación en un contenedor sin terminal. No elimina volúmenes de PostgreSQL. `-SinDatos` no omite esta preparación de dependencias.
+
 Abrir [http://localhost:5173/](http://localhost:5173/). Las opciones se pueden combinar:
 
 ```powershell
@@ -57,6 +59,8 @@ bash iniciar.sh
 ```
 
 Tiene el mismo flujo de preparación, migraciones, muestra histórica condicionada a una base vacía, cuentas de evaluación y comprobaciones HTTP que `iniciar.ps1`. Usa el modo objetivo, disponible en [http://localhost/](http://localhost/).
+
+Con `--modo desarrollo` también sincroniza las dependencias del volumen antes de iniciar Vite, con `CI=true` y lockfile congelado. `--sin-build` evita reconstruir las imágenes, pero no omite la sincronización; `--sin-datos` solo afecta a las semillas y cuentas.
 
 ```bash
 # Desarrollo con Vite y recarga, en http://localhost:5173/.
@@ -216,12 +220,17 @@ docker compose -f compose.dev.yaml exec api python manage.py seed_evaluation
 - Vite reenvía `/api` a `http://api:8000`; React sigue usando URLs relativas.
 - Código montado para recarga; dependencias Linux del frontend en volumen `frontend_node_modules`.
 
-Al cambiar dependencias frontend de un entorno ya creado, sincronizar el volumen existente:
+Los scripts de arranque ya sincronizan el volumen automáticamente en desarrollo. Si se usa Compose manualmente, o aparece `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`, detener solo el frontend y sincronizar el volumen existente sin confirmaciones interactivas:
 
 ```powershell
-docker compose -f compose.dev.yaml run --rm --no-deps app pnpm install --frozen-lockfile
+docker compose -f compose.dev.yaml stop app
+docker compose -f compose.dev.yaml run --rm --no-deps -T -e CI=true app pnpm install --frozen-lockfile
 docker compose -f compose.dev.yaml up --build -d --wait
 ```
+
+Reconstruir una imagen no reemplaza el contenido de un volumen `node_modules` ya existente. Este paso modifica únicamente dependencias generadas; no requiere `down -v` ni eliminar datos de la base. La primera sincronización o un cambio de dependencias puede necesitar conexión a Internet.
+
+El servicio `app` fija `pnpm_config_store_dir=/root/.local/share/pnpm/store`, la misma ruta usada durante el build, tanto para instalar como para iniciar Vite. pnpm 11 requiere el prefijo `pnpm_config_` para esta configuración. Así el montaje de Windows no hace que pnpm cambie de store ni cree una caché de paquetes dentro del código fuente; tampoco es necesario pasar rutas Linux como argumentos desde Git Bash.
 
 Para volver al objetivo:
 

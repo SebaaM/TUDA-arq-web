@@ -112,8 +112,18 @@ try {
     # Construye imagenes y espera los healthchecks. Al cambiar de modo retira contenedores
     # del modo anterior, pero conserva todos los volumenes de PostgreSQL.
     Write-Host "Iniciando el modo $Modo..."
+    if ($Modo -eq 'desarrollo') {
+        # El volumen node_modules puede pertenecer a otra version de pnpm o lockfile.
+        # Prepararlo ANTES de up evita que app falle al pedir confirmacion sin TTY.
+        if (-not $SinBuild) {
+            Invoke-Docker -DockerArguments ($composeArguments + @('build'))
+        }
+        Invoke-Docker -DockerArguments ($composeArguments + @('stop', 'app'))
+        Write-Host 'Sincronizando dependencias del frontend sin confirmaciones interactivas...'
+        Invoke-Docker -DockerArguments ($composeArguments + @('run', '--rm', '--no-deps', '-T', '-e', 'CI=true', 'app', 'pnpm', 'install', '--frozen-lockfile'))
+    }
     $upArguments = @('up', '--detach', '--wait', '--wait-timeout', '180', '--remove-orphans')
-    if (-not $SinBuild) { $upArguments += '--build' }
+    if (-not $SinBuild -and $Modo -ne 'desarrollo') { $upArguments += '--build' }
     Invoke-Docker -DockerArguments ($composeArguments + $upArguments)
 
     # El entrypoint de la imagen ya ejecuta migrate --noinput antes de iniciar Django.

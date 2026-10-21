@@ -52,6 +52,8 @@ services:
       target: development
     environment:
       VITE_PROXY_TARGET: "${VITE_PROXY_TARGET}"
+      # pnpm 11 usa pnpm_config_, no npm_config_, para su configuracion propia.
+      pnpm_config_store_dir: /root/.local/share/pnpm/store
     depends_on:
       api:
         condition: service_healthy

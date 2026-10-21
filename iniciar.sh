@@ -127,8 +127,16 @@ fi
 # Construye las imagenes y espera los healthchecks. Al cambiar de modo retira
 # contenedores del modo anterior, pero mantiene los volumenes y sus datos.
 printf 'Iniciando el modo %s...\n' "$modo"
+if [[ "$modo" == desarrollo ]]; then
+    # El volumen puede conservar dependencias de otro pnpm o lockfile. Sincronizarlo
+    # antes de up evita confirmaciones de reinstalacion sin terminal interactiva.
+    if [[ "$sin_build" -eq 0 ]]; then "${compose[@]}" build; fi
+    "${compose[@]}" stop app
+    printf 'Sincronizando dependencias del frontend sin confirmaciones interactivas...\n'
+    "${compose[@]}" run --rm --no-deps -T -e CI=true app pnpm install --frozen-lockfile
+fi
 up_args=(up --detach --wait --wait-timeout 180 --remove-orphans)
-if [[ "$sin_build" -eq 0 ]]; then up_args+=(--build); fi
+if [[ "$sin_build" -eq 0 && "$modo" != desarrollo ]]; then up_args+=(--build); fi
 "${compose[@]}" "${up_args[@]}"
 
 # El entrypoint ejecuta migrate --noinput antes de iniciar Django; ahora se verifica su configuracion.

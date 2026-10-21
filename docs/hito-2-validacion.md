@@ -57,3 +57,16 @@ Validación realizada en Windows, en el proyecto Compose aislado `hito2-arranque
 - `pnpm format`, `pnpm lint`, `pnpm test` (8 tests) y `pnpm build` aprobados. Los enlaces locales y bloques de código de los README se comprobaron, junto con `git diff --check`.
 
 El entorno temporal se retira al finalizar la validación; los volúmenes originales no se modifican. La restauración de documentación no incorpora la carpeta experimental.
+
+## Recuperación de un volumen de dependencias existente
+
+El arranque real de desarrollo detectó un caso no cubierto por las pruebas con volúmenes nuevos: `frontend_node_modules` conservaba una instalación de pnpm 12.14.0 y otro lockfile, mientras el proyecto y la imagen usan pnpm 11.22.0. `app` intentaba reinstalar dependencias y fallaba con `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`.
+
+Se corrigieron ambos scripts para preparar las dependencias antes de `up --wait`: construir las imágenes si corresponde, detener solo `app` y ejecutar `pnpm install --frozen-lockfile` con `CI=true`. El servicio de desarrollo fija `pnpm_config_store_dir=/root/.local/share/pnpm/store` para mantener el mismo store durante instalación y ejecución. El prefijo `npm_config_` no configura este ajuste en pnpm 11. Las rutas se configuran en Compose para evitar conversiones de argumentos Linux desde Git Bash.
+
+- Se recuperó el volumen existente sin eliminarlo ni tocar los volúmenes PostgreSQL.
+- PowerShell 5.1 y Git Bash completaron el arranque con `SinBuild`/`SinDatos`, incluidos HTTP 200 para frontend y API por Vite.
+- Se comprobó la versión final pnpm 11.22.0, el store esperado y la ausencia de `.pnpm-store` dentro del frontend. Se excluyó esa caché del contexto Docker como protección adicional.
+- Una huella de todos los registros de usuarios, actividades, participantes, inscripciones y tablas JWT fue idéntica antes y después de reparar el frontend: tres usuarios, tres actividades, cinco participantes y siete inscripciones, sin cambios de contraseñas ni fechas.
+- Formato, lint, ocho tests y build pasaron en el host; los ocho tests y el build también se repitieron dentro del contenedor reparado.
+- El desarrollo quedó levantado en `http://localhost:5173/`, con la API y Swagger en `http://localhost:8000/`.
