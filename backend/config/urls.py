@@ -14,6 +14,7 @@ class V2SpectacularJSONAPIView(SpectacularJSONAPIView):
 
 
 urlpatterns = [
+    path("api/auth/", include("accounts.urls")),
     path("admin/", admin.site.urls),
     path("", include("activities.urls")),
     path(

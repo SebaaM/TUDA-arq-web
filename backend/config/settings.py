@@ -1,4 +1,5 @@
 from pathlib import Path
+from datetime import timedelta
 import environ
 
 
@@ -25,6 +26,8 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "correlation",
     "activities",
+    "accounts",
+    "rest_framework_simplejwt.token_blacklist",
 ]
 
 MIDDLEWARE = [
@@ -110,7 +113,10 @@ STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": [],
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ],
+    "EXCEPTION_HANDLER": "accounts.errors.api_exception_handler",
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.AllowAny",
     ],
@@ -124,10 +130,21 @@ SPECTACULAR_SETTINGS = {
     "TITLE": "TUDA Activities API",
     "DESCRIPTION": (
         "API para consultar actividades, participantes e inscripciones. "
-        "Las operaciones bajo /me usan el header X-Participant-ID como "
-        "identidad controlada de demostración; no implementan autenticación real."
+        "Las operaciones bajo /me requieren JWT Bearer. Crear actividades requiere staff."
     ),
     "VERSION": "v1",
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
 }
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=env.int("JWT_ACCESS_MINUTES", default=5)),
+    "REFRESH_TOKEN_LIFETIME": timedelta(hours=env.int("JWT_REFRESH_HOURS", default=24)),
+    "ROTATE_REFRESH_TOKENS": False,
+    "BLACKLIST_AFTER_ROTATION": False,
+    "SIGNING_KEY": env("JWT_SIGNING_KEY", default=SECRET_KEY),
+}
+AUTH_COOKIE_SECURE = env.bool("AUTH_COOKIE_SECURE", default=False)
+CSRF_COOKIE_SECURE = AUTH_COOKIE_SECURE
+CSRF_TRUSTED_ORIGINS = env.list("DJANGO_CSRF_TRUSTED_ORIGINS", default=[])
+CSRF_FAILURE_VIEW = "accounts.errors.csrf_failure"
