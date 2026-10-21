@@ -7,6 +7,50 @@ El repositorio comienza con dos aplicaciones independientes:
 - `backend/`: Django, el modelo `Activity`, PostgreSQL y una vista HTML clásica.
 - `frontend/`: Vite + React + TypeScript para la implementación cliente del laboratorio.
 
+## Arranque automático en Windows
+
+Con Docker Desktop instalado, ejecutar desde PowerShell:
+
+```powershell
+.\iniciar.ps1
+```
+
+El script está comentado por pasos y usa el modo objetivo por defecto: Nginx, React compilado,
+Gunicorn y PostgreSQL. Crea `.env` si falta, intenta iniciar Docker Desktop si el motor no responde,
+construye las imágenes y espera a que los servicios estén listos. Las dependencias de Python y pnpm
+se instalan dentro de las imágenes; el entrypoint de Django aplica las migraciones automáticamente.
+Después comprueba Django, carga datos de ejemplo **solo si las tablas de actividades, participantes
+e inscripciones están vacías** y verifica las respuestas HTTP del frontend y la API.
+
+Abrir <http://localhost/>. Para desarrollar con Vite y recarga automática:
+
+```powershell
+.\iniciar.ps1 -Modo desarrollo
+```
+
+Abrir <http://localhost:5173/>. Las opciones se pueden combinar:
+
+```powershell
+# Reutilizar imágenes ya construidas para un arranque más rápido.
+.\iniciar.ps1 -SinBuild
+
+# Levantar sin cargar datos de ejemplo, incluso si la base está vacía.
+.\iniciar.ps1 -SinDatos
+```
+
+Si PowerShell bloquea el script por su política de ejecución, se puede habilitar únicamente
+para ese proceso, sin cambiar la configuración permanente:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\iniciar.ps1
+```
+
+Al cambiar entre objetivo y desarrollo, Compose recrea los servicios compartidos y retira
+los contenedores del modo anterior, conservando los volúmenes. Cada modo tiene su propia base.
+Si ya hay cualquier dato de dominio, el script omite **todas** las semillas: las actuales restauran
+la muestra y podrían eliminar datos propios. Si falla, informa el paso y muestra el estado y los
+últimos logs; no elimina volúmenes. El primer build requiere conexión a Internet.
+
 ## Puesta en marcha local
 
 ### 1. Backend
