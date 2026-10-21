@@ -7,7 +7,9 @@ El repositorio comienza con dos aplicaciones independientes:
 - `backend/`: Django, el modelo `Activity`, PostgreSQL y una vista HTML clásica.
 - `frontend/`: Vite + React + TypeScript para la implementación cliente del laboratorio.
 
-## Arranque automático en Windows
+## Opción 1: arranque automático con scripts
+
+### Windows
 
 Con Docker Desktop instalado, ejecutar desde PowerShell:
 
@@ -51,7 +53,178 @@ Si ya hay cualquier dato de dominio, el script omite **todas** las semillas: las
 la muestra y podrían eliminar datos propios. Si falla, informa el paso y muestra el estado y los
 últimos logs; no elimina volúmenes. El primer build requiere conexión a Internet.
 
-## Puesta en marcha local
+### macOS y Linux
+
+Requiere Bash 3.2 o posterior, `curl` y Docker con el plugin Compose. En macOS se puede
+usar Docker Desktop; en Linux, Docker Engine o Docker Desktop con acceso para el usuario actual.
+Desde la raíz del proyecto:
+
+```bash
+bash iniciar.sh
+```
+
+Tiene el mismo flujo de preparación, migraciones, carga segura de datos y comprobaciones HTTP
+que `iniciar.ps1`. Usa el modo objetivo por defecto, disponible en <http://localhost/>.
+Las opciones se pueden combinar:
+
+```bash
+# Desarrollo con Vite y recarga, en http://localhost:5173/.
+bash iniciar.sh --modo desarrollo
+
+# Arranque rápido con las imágenes existentes.
+bash iniciar.sh --sin-build
+
+# Omitir la carga de datos de ejemplo.
+bash iniciar.sh --sin-datos
+
+# Mostrar todos los parámetros.
+bash iniciar.sh --help
+```
+
+En Mac intenta abrir Docker Desktop si el motor está apagado. En Linux intenta iniciar
+Docker rootless o Docker Desktop como servicio del usuario. Para Docker Engine con systemd,
+si hace falta arrancar el servicio del sistema, ejecutar primero `sudo systemctl start docker`.
+El script no pide `sudo` ni cambia permisos del socket; `docker info` debe funcionar con el usuario
+que lo ejecuta. Python y pnpm se instalan dentro de las imágenes.
+
+No es necesario dar permiso de ejecución al invocarlo con `bash`. Si se prefiere `./iniciar.sh`:
+
+```bash
+chmod +x iniciar.sh
+./iniciar.sh
+```
+
+## Opción 2: arranque manual con Docker Compose
+
+Esta opción ejecuta los pasos desde la terminal, sin usar `iniciar.ps1` ni `iniciar.sh`.
+Los comandos siguientes parten de la raíz del repositorio. Requiere Docker con Compose;
+Python, Django, pnpm y PostgreSQL se ejecutan dentro de los contenedores.
+
+### 1. Iniciar Docker y preparar el entorno
+
+Abrir Docker Desktop en Windows/macOS, o iniciar Docker Engine en Linux. Para una instalación
+de Docker Engine con systemd se puede usar `sudo systemctl start docker`.
+Comprobar que el usuario actual tenga acceso al motor:
+
+```bash
+docker info
+docker compose version
+```
+
+Crear `.env` únicamente si no existe. En macOS/Linux:
+
+```bash
+if [ ! -f .env ]; then cp .env.example .env; fi
+```
+
+En PowerShell:
+
+```powershell
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+```
+
+Revisar las variables `POSTGRES_*`, `DJANGO_*` y `VITE_PROXY_TARGET` antes del primer arranque.
+Dentro de Compose, Django encuentra PostgreSQL mediante `POSTGRES_HOST=db` y Vite alcanza
+la API mediante `VITE_PROXY_TARGET=http://api:8000`.
+
+### 2. Construir y levantar la ejecución objetivo
+
+```bash
+# Validar el archivo Compose y las variables, sin imprimir credenciales.
+docker compose config --quiet
+
+# Construir las imágenes y esperar a que los servicios estén listos.
+docker compose up --build -d --wait --wait-timeout 180 --remove-orphans
+```
+
+Este modo levanta PostgreSQL, Django/Gunicorn y Nginx con React compilado. Solo Nginx publica
+el puerto 80. `--remove-orphans` retira contenedores del modo anterior al cambiar de configuración,
+sin eliminar sus volúmenes.
+
+### 3. Comprobar Django y las migraciones
+
+El entrypoint aplica las migraciones automáticamente antes de iniciar Django. Para comprobarlo
+o volver a aplicarlas explícitamente, sin duplicarlas:
+
+```bash
+docker compose exec api python manage.py migrate --noinput
+docker compose exec api python manage.py check
+```
+
+### 4. Cargar datos de ejemplo en una base nueva
+
+Primero consultar si ya hay actividades, participantes o inscripciones:
+
+```bash
+docker compose exec api python manage.py shell --command "from activities.models import Activity, Participant, Enrollment; print({'activities': Activity.objects.count(), 'participants': Participant.objects.count(), 'enrollments': Enrollment.objects.count()})"
+```
+
+**Ejecutar las semillas siguientes solo si los tres valores son cero.** A diferencia de los
+scripts automáticos, estos comandos manuales no comprueban si hay datos: restauran la muestra
+y pueden eliminar actividades, participantes e inscripciones existentes.
+
+```bash
+docker compose exec api python manage.py seed_activities
+docker compose exec api python manage.py seed_participants_and_enrollments
+```
+
+En arranques posteriores, omitir este paso para conservar las modificaciones propias.
+
+### 5. Abrir y verificar el proyecto
+
+- Aplicación: <http://localhost/>.
+- API v1: <http://localhost/api/v1/activities/>.
+- API v2: <http://localhost/api/v2/activities/>.
+- Swagger: <http://localhost/api/docs>.
+
+```bash
+docker compose ps
+curl -i http://localhost/
+curl -i http://localhost/api/v2/activities/
+docker compose logs --tail 50 api nginx
+```
+
+En PowerShell usar `curl.exe` en lugar de `curl`. Las consultas deben responder HTTP 200.
+Si un servicio falla, revisar `docker compose logs --tail 50 db api nginx`.
+
+### 6. Usar el modo desarrollo manualmente
+
+Para trabajar con Vite y `runserver`, usar `compose.dev.yaml` en todos los comandos:
+
+```bash
+docker compose -f compose.dev.yaml config --quiet
+docker compose -f compose.dev.yaml up --build -d --wait --wait-timeout 180 --remove-orphans
+docker compose -f compose.dev.yaml exec api python manage.py migrate --noinput
+docker compose -f compose.dev.yaml exec api python manage.py check
+```
+
+Abrir <http://localhost:5173/> para React y <http://localhost:8000/api/docs> para la API directa.
+Este modo tiene una base distinta de la ejecución objetivo. Si necesita datos iniciales,
+repetir la comprobación y las semillas del paso 4 agregando `-f compose.dev.yaml` después de
+`docker compose` en cada comando. También usar esa opción para `ps`, `logs` y `exec`.
+
+### 7. Detener y volver a iniciar
+
+```bash
+# Detener el objetivo conservando sus datos.
+docker compose down
+
+# Volver a iniciar con las imágenes existentes y esperar los servicios.
+docker compose up -d --wait --wait-timeout 180 --remove-orphans
+
+# Detener el desarrollo conservando sus datos.
+docker compose -f compose.dev.yaml down
+```
+
+No agregar `-v` al detener si se quieren conservar los datos: `docker compose down -v`
+elimina también el volumen de PostgreSQL de la ejecución objetivo.
+
+## Puesta en marcha local avanzada sin contenedores de aplicación
+
+Esta variante requiere Python, pnpm y una instancia de PostgreSQL accesible desde la computadora.
+Para el backend local ajustar `POSTGRES_HOST=127.0.0.1` (o el host real) en `.env`, en lugar de
+`db`, que solo resuelve dentro de Compose. Vite usa por defecto `http://127.0.0.1:8000` como proxy;
+si se define `VITE_PROXY_TARGET` para el proceso local, usar esa dirección en vez de `api:8000`.
 
 ### 1. Backend
 
@@ -132,74 +305,18 @@ localhost:80 → nginx
                              db/PostgreSQL
 ```
 
-## Puesta en marcha con Docker Compose
+## Checkpoint intermedio: API con Gunicorn
 
-El modo de desarrollo usa PostgreSQL, Django con `runserver` y Vite dentro de Compose.
-Copiá el archivo de variables antes del primer arranque:
-
-```bash
-cp .env.example .env
-docker compose -f compose.dev.yaml up --build -d
-docker compose -f compose.dev.yaml exec api python manage.py seed_activities
-docker compose -f compose.dev.yaml exec api python manage.py seed_participants_and_enrollments
-```
-
-En PowerShell, el primer comando equivalente es:
-
-```powershell
-Copy-Item .env.example .env
-```
-
-Las migraciones se aplican automáticamente al iniciar el backend. El backend queda disponible en <http://127.0.0.1:8000/> y el frontend en <http://127.0.0.1:5173/>.
-Las semillas se ejecutan una sola vez sobre una base nueva porque restauran datos de demostración.
-
-Para detener ambos servicios:
-
-```bash
-docker compose -f compose.dev.yaml down
-```
-
-Para probar el servidor de aplicación sin Vite:
+`compose.gunicorn.yaml` permite probar el servidor de aplicación sin Vite ni Nginx:
 
 ```bash
 docker compose -f compose.gunicorn.yaml up --build -d
-docker compose -f compose.gunicorn.yaml exec api python manage.py seed_activities
-docker compose -f compose.gunicorn.yaml exec api python manage.py seed_participants_and_enrollments
 ```
 
-En este modo Django se ejecuta con Gunicorn y la API queda temporalmente publicada en <http://127.0.0.1:8000/>. Es un checkpoint intermedio; la ejecución final usa Nginx como única frontera pública.
-
-Este Compose es un checkpoint de la etapa de servidor de aplicación. La ejecución final se realiza con `compose.yaml`.
-
-La ejecución objetivo completa usa el build de React, Gunicorn, PostgreSQL y Nginx:
-
-```bash
-docker compose up --build -d
-docker compose exec api python manage.py seed_activities
-docker compose exec api python manage.py seed_participants_and_enrollments
-```
-
-El navegador debe utilizar solamente <http://localhost/>. En este modo solo Nginx publica un puerto; Django y PostgreSQL permanecen en la red interna.
-
-Para observar la topología:
-
-```bash
-docker compose ps
-docker compose logs -f nginx
-docker compose logs -f api
-```
-
-Para detener la ejecución objetivo conservando PostgreSQL:
-
-```bash
-docker compose down
-```
-
-Para eliminar también los datos persistidos y comenzar desde cero:
-
-```bash
-docker compose down -v
-```
+La API queda publicada en <http://localhost:8000/>. Para cargar datos en una base nueva,
+seguir las precauciones de la opción manual usando `-f compose.gunicorn.yaml`.
+Detenerlo con `docker compose -f compose.gunicorn.yaml down` antes de cambiar de modo.
+La ejecución objetivo completa se inicia con `compose.yaml`, como indica la opción 2.
 
 ## Verificación rápida
 
