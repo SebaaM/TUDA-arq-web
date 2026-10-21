@@ -1,0 +1,469 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "TUDA Activities API",
+    "version": "v1",
+    "description": "API para consultar actividades, participantes e inscripciones. Las operaciones bajo /me usan el header X-Participant-ID como identidad controlada de demostración; no implementan autenticación real."
+  },
+  "paths": {
+    "/api/v2/activities/": {
+      "get": {
+        "operationId": "listActivitiesV2",
+        "description": "Devuelve todas las actividades ordenadas por fecha de inicio. La disponibilidad viaja anidada en `availability`.",
+        "summary": "Listar actividades (contrato v2)",
+        "tags": [
+          "Activities"
+        ],
+        "security": [
+          {}
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ActivityV2"
+                  }
+                }
+              }
+            },
+            "description": ""
+          },
+          "405": {
+            "description": "Método no permitido."
+          }
+        }
+      },
+      "post": {
+        "operationId": "createActivityV2",
+        "description": "Crea una actividad con nombre, categoría, fecha y capacidad.",
+        "summary": "Crear una actividad (contrato v2)",
+        "tags": [
+          "Activities"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActivityCreateV2Request"
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/ActivityCreateV2Request"
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/ActivityCreateV2Request"
+              }
+            }
+          },
+          "required": true
+        },
+        "security": [
+          {}
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityV2"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": ""
+          },
+          "405": {
+            "description": "Método no permitido."
+          }
+        }
+      }
+    },
+    "/api/v2/activities/{activity_id}/": {
+      "get": {
+        "operationId": "getActivityV2",
+        "description": "Recupera una actividad concreta a partir de su UUID.",
+        "summary": "Obtener una actividad (contrato v2)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "activity_id",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Identificador único de la actividad.",
+            "required": true
+          }
+        ],
+        "tags": [
+          "Activities"
+        ],
+        "security": [
+          {}
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityV2"
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": ""
+          },
+          "405": {
+            "description": "Método no permitido."
+          }
+        }
+      }
+    },
+    "/api/v2/me/enrollments/": {
+      "get": {
+        "operationId": "listMyEnrollmentsV2",
+        "description": "Lista las inscripciones del participante indicado por X-Participant-ID.",
+        "summary": "Listar mis inscripciones (contrato v2)",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Participant-ID",
+            "schema": {
+              "type": "string"
+            },
+            "description": "UUID del participante de demostración. Se usa como identidad de laboratorio; no es autenticación real.",
+            "required": true
+          }
+        ],
+        "tags": [
+          "Enrollments"
+        ],
+        "security": [
+          {}
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Enrollment"
+                  }
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": ""
+          },
+          "405": {
+            "description": "Método no permitido."
+          }
+        }
+      }
+    },
+    "/api/v2/me/enrollments/{activity_id}/": {
+      "put": {
+        "operationId": "putMyEnrollmentV2",
+        "description": "Crea la inscripción (201) o devuelve la existente (200) si se repite.",
+        "summary": "Inscribirse en una actividad (contrato v2)",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Participant-ID",
+            "schema": {
+              "type": "string"
+            },
+            "description": "UUID del participante de demostración. Se usa como identidad de laboratorio; no es autenticación real.",
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "activity_id",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Identificador único de la actividad.",
+            "required": true
+          }
+        ],
+        "tags": [
+          "Enrollments"
+        ],
+        "security": [
+          {}
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Enrollment"
+                }
+              }
+            },
+            "description": ""
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Enrollment"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": ""
+          },
+          "405": {
+            "description": "Método no permitido."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": ""
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteMyEnrollmentV2",
+        "description": "Elimina la inscripción (204). Una repetición también responde 204.",
+        "summary": "Cancelar mi inscripción (contrato v2)",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Participant-ID",
+            "schema": {
+              "type": "string"
+            },
+            "description": "UUID del participante de demostración. Se usa como identidad de laboratorio; no es autenticación real.",
+            "required": true
+          },
+          {
+            "in": "path",
+            "name": "activity_id",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Identificador único de la actividad.",
+            "required": true
+          }
+        ],
+        "tags": [
+          "Enrollments"
+        ],
+        "security": [
+          {}
+        ],
+        "responses": {
+          "204": {
+            "description": "Inscripción cancelada."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": ""
+          },
+          "405": {
+            "description": "Método no permitido."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ActivityCreateV2Request": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "category": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "starts_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "capacity": {
+            "type": "integer",
+            "maximum": 2147483647,
+            "minimum": 0
+          }
+        },
+        "required": [
+          "capacity",
+          "category",
+          "starts_at",
+          "title"
+        ]
+      },
+      "ActivityV2": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "readOnly": true
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "category": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "starts_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "availability": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AvailabilityV2"
+              }
+            ],
+            "readOnly": true,
+            "description": "Disponibilidad de cupos anidada en el contrato v2."
+          }
+        },
+        "required": [
+          "availability",
+          "id",
+          "starts_at",
+          "title"
+        ]
+      },
+      "AvailabilityV2": {
+        "type": "object",
+        "properties": {
+          "capacity": {
+            "type": "integer",
+            "description": "Lugar total de la actividad."
+          },
+          "available_slots": {
+            "type": "integer",
+            "description": "Cupos disponibles según las inscripciones persistidas."
+          }
+        },
+        "required": [
+          "available_slots",
+          "capacity"
+        ]
+      },
+      "Enrollment": {
+        "type": "object",
+        "properties": {
+          "activity_id": {
+            "type": "string",
+            "format": "uuid",
+            "readOnly": true
+          },
+          "enrolled_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "activity_id",
+          "enrolled_at"
+        ]
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ]
+      }
+    }
+  }
+}
