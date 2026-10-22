@@ -7,6 +7,26 @@ Base de trabajo para retomar una aplicación Django renderizada en el servidor y
 - `backend/`: Django, los modelos de actividades e inscripciones, PostgreSQL y una vista HTML clásica.
 - `frontend/`: Vite + React + TypeScript para la implementación cliente del laboratorio.
 
+## Inspector didáctico de sesión
+
+El botón **Sesión en vivo**, en la esquina superior derecha, abre un panel para observar la
+autenticación. Muestra el access JWT en memoria (sin revelar su valor), sus horas `iat`/`exp`
+y una cuenta regresiva; la cookie CSRF abreviada; y el último estado del refresh informado por
+los intercambios de autenticación. Las señales del botón indican envíos y actualizaciones.
+
+El historial registra hasta 40 intercambios de esta pestaña, con método, ruta sin query string,
+estado HTTP, tiempo de respuesta y presencia de Bearer/CSRF. No almacena cuerpos, contraseñas
+ni valores de credenciales y desaparece al recargar. El refresh es HttpOnly: el panel no puede
+leerlo, confirmar que el navegador lo envió ni calcular su vencimiento. Tampoco puede leer los
+atributos o la expiración de la cookie CSRF mediante `document.cookie`.
+
+Para demostrar el flujo, iniciar sesión, abrir el inspector y usar **Consultar /me** o **Renovar
+access**. Dejar que el access llegue a `00:00` y consultar `/me` permite observar `401 → refresh →
+reintento`, si el refresh sigue vigente. El temporizador no renueva tokens ni cambia la sesión.
+Al cerrar sesión, el historial distingue la limpieza local del access de la confirmación remota
+del logout; un access ya emitido puede seguir aceptándose hasta su vencimiento. La decodificación
+del JWT en el panel es informativa: la validación de firma y permisos sigue a cargo de Django.
+
 ## Opción 1: arranque automático con scripts
 
 ### Windows

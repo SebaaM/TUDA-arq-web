@@ -32,7 +32,6 @@ import {
 import { Input } from "@source/components/ui/input";
 import { Label } from "@source/components/ui/label";
 import { Skeleton } from "@source/components/ui/skeleton";
-import { AuthControls } from "@source/features/auth";
 import { useAuth } from "@source/features/auth/useAuth";
 import { EnrollmentPanel } from "@source/features/activities/EnrollmentPanel";
 
@@ -400,12 +399,6 @@ export function ActivitiesPage() {
   return (
     <main className="min-h-svh bg-background">
       <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:py-12">
-        <nav className="mb-12 flex flex-wrap items-center justify-between gap-4 border-b border-border/70 pb-4">
-          <span className="text-sm font-semibold tracking-wide text-foreground">
-            TUDA <span className="text-primary">/ ACTIVIDADES</span>
-          </span>
-          <AuthControls />
-        </nav>
         <header className="mb-8 flex flex-col gap-5 sm:mb-10 sm:flex-row sm:items-end sm:justify-between">
           <div className="max-w-2xl space-y-2">
             <p className="text-sm font-medium uppercase tracking-[0.18em] text-primary">
