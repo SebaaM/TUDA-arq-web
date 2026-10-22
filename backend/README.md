@@ -4,7 +4,7 @@ API Django REST Framework sobre PostgreSQL. Gunicorn ejecuta config.wsgi:applica
 
 La ruta `/` del backend conserva la vista HTML clásica. `/api/v1` mantiene la representación original y `/api/v2` expone la utilizada por React. Hito 2 incorpora autenticación JWT sin cambiar los cuerpos de actividades e inscripciones ni las reglas de idempotencia.
 
-La documentación canónica de rutas y cuerpos está en [API.md](../API.md). Ver [README raíz](../README.md) para variables y arranque completo.
+La documentación canónica de rutas y cuerpos está en [API.md](../API.md). Ver el [README raíz](../README.md) para el inicio rápido, [Ejecución y diagnóstico](../docs/ejecucion.md) para los modos de arranque y [Configuración del entorno](../docs/configuracion.md) para las variables.
 
 ## Ejecución con Docker
 
@@ -73,6 +73,8 @@ Login, refresh y logout comprueban explícitamente CSRF: enviar cookie `csrftoke
 Logout no revoca inmediatamente un access ya emitido: sigue válido hasta expirar. Tampoco cierra las demás sesiones del usuario. Login y refresh usan `Cache-Control: no-store`.
 
 ## Contrato HTTP
+
+La lógica de dominio y la persistencia son compartidas. Las vistas v2 extienden las v1 y cambian el serializador público y los metadatos de OpenAPI. La suite comprueba regresión de v1, coexistencia entre versiones e idempotencia cruzada de PUT/DELETE.
 
 ### Rutas v1
 
