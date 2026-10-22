@@ -1,4 +1,4 @@
-# Ejemplo 01: de Django clásico a una API
+# Django y API REST
 
 Aplicación React + TypeScript con API Django REST Framework y PostgreSQL. El Hito 2 incorpora JWT y conserva las representaciones e idempotencia del Hito 1.
 
@@ -7,44 +7,30 @@ Base de trabajo para retomar una aplicación Django renderizada en el servidor y
 - `backend/`: Django, los modelos de actividades e inscripciones, PostgreSQL y una vista HTML clásica.
 - `frontend/`: Vite + React + TypeScript para la implementación cliente del laboratorio.
 
-## Inspector didáctico de sesión
+## Índice
 
-El botón **Sesión en vivo**, en la esquina superior derecha, abre un panel para observar la
-autenticación. Muestra el access JWT en memoria (sin revelar su valor), sus horas `iat`/`exp`
-y una cuenta regresiva; la cookie CSRF abreviada; y el último estado del refresh informado por
-los intercambios de autenticación. Las señales del botón indican envíos y actualizaciones.
+El orden de lectura va de la puesta en marcha al uso cotidiano, y después a la referencia técnica y el diagnóstico. Las variantes avanzadas y el contexto didáctico se conservan en sus propios apartados.
 
-El historial registra hasta 40 intercambios de esta pestaña, con método, ruta sin query string,
-estado HTTP, tiempo de respuesta y presencia de Bearer/CSRF. No almacena cuerpos, contraseñas
-ni valores de credenciales y desaparece al recargar. El refresh es HttpOnly: el panel no puede
-leerlo, confirmar que el navegador lo envió ni calcular su vencimiento. Tampoco puede leer los
-atributos o la expiración de la cookie CSRF mediante `document.cookie`.
+- [Puesta en marcha](#puesta-en-marcha)
+  - [Con scripts: opción recomendada](#opción-1-arranque-automático-con-scripts)
+  - [Con Docker Compose: paso a paso](#opción-2-arranque-manual-con-docker-compose)
+- [Uso de la aplicación](#uso-de-la-aplicación)
+  - [Accesos](#accesos-del-proyecto) y [cuentas de evaluación](#cuentas-de-evaluación)
+  - [Inspector de sesión](#inspector-didáctico-de-sesión) y [guía de autenticación](#guía-de-autenticación-y-seguridad)
+- [Arquitectura y configuración](#arquitectura-y-configuración)
+- [Desarrollo y ejecuciones alternativas](#desarrollo-y-ejecuciones-alternativas)
+- [Autenticación y API](#autenticación-y-api)
+- [Pruebas y evaluación](#pruebas-y-evaluación)
+- [Operación y diagnóstico](#operación-y-diagnóstico)
+- [Contexto y documentación](#contexto-y-documentación)
 
-Para demostrar el flujo, iniciar sesión, abrir el inspector y usar **Consultar /me** o **Renovar
-access**. Dejar que el access llegue a `00:00` y consultar `/me` permite observar `401 → refresh →
-reintento`, si el refresh sigue vigente. El temporizador no renueva tokens ni cambia la sesión.
-Al cerrar sesión, el historial distingue la limpieza local del access de la confirmación remota
-del logout; un access ya emitido puede seguir aceptándose hasta su vencimiento. La decodificación
-del JWT en el panel es informativa: la validación de firma y permisos sigue a cargo de Django.
+## Puesta en marcha
 
-## Guía de autenticación y seguridad
+Para una primera ejecución, usar los scripts de la opción 1. La opción 2 muestra los mismos pasos de forma manual. Ambas levantan por defecto la topología objetivo; el modo de trabajo con recarga y las variantes avanzadas se explican en [Desarrollo y ejecuciones alternativas](#desarrollo-y-ejecuciones-alternativas).
 
-El enlace **Guía de autenticación** del encabezado abre una sección pública e independiente
-en `/#guia-autenticacion` (por ejemplo, [http://localhost/#guia-autenticacion](http://localhost/#guia-autenticacion)
-en el modo objetivo). Explica las diferencias entre access JWT, refresh HttpOnly y CSRF, con
-tres diagramas: inicio de sesión, renovación con un solo reintento y cierre de sesión. Incluye
-los límites de seguridad y las diferencias entre el laboratorio HTTP y un despliegue HTTPS.
+### Opción 1: arranque automático con scripts
 
-En escritorio se muestran secuencias entre navegador, Django y PostgreSQL; en móvil los
-mismos pasos se presentan como una lista vertical, también disponible para lectores de
-pantalla. La navegación conserva el historial del navegador y permite volver a actividades.
-No agrega dependencias ni cambia la autenticación. Los tiempos son los valores por defecto,
-no una medición de la sesión. Para observar los intercambios reales se conserva el panel
-**Sesión en vivo** descrito arriba: la guía no lo sustituye ni muestra credenciales reales.
-
-## Opción 1: arranque automático con scripts
-
-### Windows
+#### Windows
 
 Con Docker Desktop instalado, ejecutar desde PowerShell en la raíz:
 
@@ -85,7 +71,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\iniciar.ps1
 
 Al cambiar entre objetivo y desarrollo, el script recrea los servicios compartidos y retira los contenedores del modo anterior, conservando los volúmenes. Cada modo tiene su propia base. Ante un fallo muestra el estado y los últimos logs; no elimina volúmenes. El primer build requiere conexión a Internet.
 
-### macOS y Linux
+#### macOS y Linux
 
 Requiere Bash 3.2 o posterior, `curl` y Docker con el plugin Compose. En macOS se puede usar Docker Desktop; en Linux, Docker Engine o Docker Desktop con acceso para el usuario actual. Desde la raíz:
 
@@ -120,13 +106,13 @@ chmod +x iniciar.sh
 ./iniciar.sh
 ```
 
-## Opción 2: arranque manual con Docker Compose
+### Opción 2: arranque manual con Docker Compose
 
 Requisitos: Git y Docker Desktop con motor Linux y Docker Compose. Los comandos siguientes se ejecutan desde la raíz del repositorio. No se necesita instalar Python, Node ni PostgreSQL en el host para usar Compose.
 
 En Linux también se puede usar Docker Engine con el plugin Compose. Esta opción permite ejecutar cada paso sin los scripts de arranque.
 
-### 1. Iniciar Docker y preparar el entorno
+#### 1. Iniciar Docker y preparar el entorno
 
 Abrir Docker Desktop o iniciar Docker Engine. Comprobar el acceso del usuario al motor:
 
@@ -149,7 +135,7 @@ if [ ! -f .env ]; then cp .env.example .env; fi
 
 Revisar las variables `POSTGRES_*`, `DJANGO_*`, `JWT_*`, `AUTH_COOKIE_SECURE` y `VITE_PROXY_TARGET` antes del primer arranque. Dentro de Compose, Django encuentra PostgreSQL mediante `POSTGRES_HOST=db` y Vite alcanza la API mediante `VITE_PROXY_TARGET=http://api:8000`.
 
-### 2. Construir y levantar la ejecución objetivo
+#### 2. Construir y levantar la ejecución objetivo
 
 ```bash
 # Validar sin imprimir credenciales.
@@ -159,7 +145,7 @@ docker compose up --build -d --wait --wait-timeout 180 --remove-orphans
 
 Solo Nginx publica el puerto 80. `--remove-orphans` retira contenedores ajenos a la configuración elegida dentro del mismo proyecto Compose, pero no sus volúmenes. Para cambiar de modo manualmente, detener primero el anterior como se explica en desarrollo.
 
-### 3. Comprobar Django y las migraciones
+#### 3. Comprobar Django y las migraciones
 
 El entrypoint aplica las migraciones al iniciar, incluidas las de usuarios, el vínculo de participantes y la blacklist de refresh tokens. Se pueden comprobar o aplicar de nuevo sin duplicarlas:
 
@@ -168,7 +154,7 @@ docker compose exec api python manage.py migrate --noinput
 docker compose exec api python manage.py check
 ```
 
-### 4. Preparar las cuentas y los datos de evaluación
+#### 4. Preparar las cuentas y los datos de evaluación
 
 ```bash
 docker compose exec api python manage.py seed_evaluation
@@ -178,14 +164,6 @@ Abrir [http://localhost/](http://localhost/). Swagger está en [http://localhost
 
 Las semillas son explícitas: el entrypoint no las ejecuta en cada arranque del contenedor. Los scripts de la opción 1 sí las solicitan, salvo con `SinDatos`. No sobrescribir un `.env` configurado.
 
-| Usuario de evaluación | Contraseña local | Permiso |
-| --- | --- | --- |
-| juan | Evaluacion2026! | Consultar e inscribirse |
-| maria | Evaluacion2026! | Consultar e inscribirse |
-| docente | Evaluacion2026! | Staff: también crear actividades |
-
-Estas credenciales se crean exclusivamente para la evaluación local. `seed_evaluation` restablece sus contraseñas y vincula participantes por UUID; conserva actividades e inscripciones existentes y no crea inscripciones de muestra. Si el participante ya existe, conserva también su nombre: por eso la cuenta `docente` puede aparecer vinculada a Carlos Martínez en una base con la muestra histórica.
-
 Los antiguos comandos `seed_activities` y `seed_participants_and_enrollments` restauran datos de forma destructiva. Los scripts solo los usan si las tres tablas de dominio están vacías; no ejecutarlos manualmente sobre una base que se quiera conservar. Para diagnosticar el contenido sin modificarlo:
 
 ```bash
@@ -194,12 +172,9 @@ docker compose exec api python manage.py shell --command "from activities.models
 
 En arranques posteriores no hace falta repetir `seed_evaluation`, salvo que se quiera crear o restablecer esas cuentas locales.
 
-### 5. Abrir y verificar el proyecto
+#### 5. Abrir y verificar el proyecto
 
-- Aplicación: [http://localhost/](http://localhost/).
-- API v1: [http://localhost/api/v1/activities/](http://localhost/api/v1/activities/).
-- API v2: [http://localhost/api/v2/activities/](http://localhost/api/v2/activities/).
-- Swagger: [http://localhost/api/docs](http://localhost/api/docs).
+Las direcciones están reunidas en [Accesos del proyecto](#accesos-del-proyecto). Después de abrir la aplicación, comprobar los servicios:
 
 ```bash
 docker compose ps
@@ -210,7 +185,73 @@ docker compose logs --tail 50 api nginx
 
 En PowerShell usar `curl.exe` en lugar de `curl`. Las consultas públicas deben responder HTTP 200. Si un servicio falla, revisar `docker compose logs --tail 50 db api nginx`.
 
-## Topología objetivo
+## Uso de la aplicación
+
+Una vez levantado el proyecto, estos apartados reúnen dónde entrar, con qué cuentas probarlo y cómo explorar la autenticación desde la interfaz.
+
+### Accesos del proyecto
+
+En la topología objetivo:
+
+- Aplicación: [http://localhost/](http://localhost/).
+- API v1: [http://localhost/api/v1/activities/](http://localhost/api/v1/activities/).
+- API v2: [http://localhost/api/v2/activities/](http://localhost/api/v2/activities/).
+- Swagger: [http://localhost/api/docs](http://localhost/api/docs).
+
+Las direcciones del modo con recarga están en [Desarrollo con recarga](#desarrollo-con-recarga).
+
+### Cuentas de evaluación
+
+Los scripts las preparan automáticamente salvo que se indique `-SinDatos` o `--sin-datos`. En el arranque manual se preparan con `seed_evaluation`, como se indica en el paso 4.
+
+| Usuario de evaluación | Contraseña local | Permiso                          |
+| --------------------- | ---------------- | -------------------------------- |
+| juan                  | Evaluacion2026!  | Consultar e inscribirse          |
+| maria                 | Evaluacion2026!  | Consultar e inscribirse          |
+| docente               | Evaluacion2026!  | Staff: también crear actividades |
+
+Estas credenciales se crean exclusivamente para la evaluación local. `seed_evaluation` restablece sus contraseñas y vincula participantes por UUID; conserva actividades e inscripciones existentes y no crea inscripciones de muestra. Si el participante ya existe, conserva también su nombre: por eso la cuenta `docente` puede aparecer vinculada a Carlos Martínez en una base con la muestra histórica.
+
+### Inspector didáctico de sesión
+
+El botón **Sesión en vivo**, en la esquina superior derecha, abre un panel para observar la
+autenticación. Muestra el access JWT en memoria (sin revelar su valor), sus horas `iat`/`exp`
+y una cuenta regresiva; la cookie CSRF abreviada; y el último estado del refresh informado por
+los intercambios de autenticación. Las señales del botón indican envíos y actualizaciones.
+
+El historial registra hasta 40 intercambios de esta pestaña, con método, ruta sin query string,
+estado HTTP, tiempo de respuesta y presencia de Bearer/CSRF. No almacena cuerpos, contraseñas
+ni valores de credenciales y desaparece al recargar. El refresh es HttpOnly: el panel no puede
+leerlo, confirmar que el navegador lo envió ni calcular su vencimiento. Tampoco puede leer los
+atributos o la expiración de la cookie CSRF mediante `document.cookie`.
+
+Para demostrar el flujo, iniciar sesión, abrir el inspector y usar **Consultar /me** o **Renovar
+access**. Dejar que el access llegue a `00:00` y consultar `/me` permite observar `401 → refresh →
+reintento`, si el refresh sigue vigente. El temporizador no renueva tokens ni cambia la sesión.
+Al cerrar sesión, el historial distingue la limpieza local del access de la confirmación remota
+del logout; un access ya emitido puede seguir aceptándose hasta su vencimiento. La decodificación
+del JWT en el panel es informativa: la validación de firma y permisos sigue a cargo de Django.
+
+### Guía de autenticación y seguridad
+
+El enlace **Guía de autenticación** del encabezado abre una sección pública e independiente
+en `/#guia-autenticacion` (por ejemplo, [http://localhost/#guia-autenticacion](http://localhost/#guia-autenticacion)
+en el modo objetivo). Explica las diferencias entre access JWT, refresh HttpOnly y CSRF, con
+tres diagramas: inicio de sesión, renovación con un solo reintento y cierre de sesión. Incluye
+los límites de seguridad y las diferencias entre el laboratorio HTTP y un despliegue HTTPS.
+
+En escritorio se muestran secuencias entre navegador, Django y PostgreSQL; en móvil los
+mismos pasos se presentan como una lista vertical, también disponible para lectores de
+pantalla. La navegación conserva el historial del navegador y permite volver a actividades.
+No agrega dependencias ni cambia la autenticación. Los tiempos son los valores por defecto,
+no una medición de la sesión. Para observar los intercambios reales se conserva el panel
+**Sesión en vivo** descrito arriba: la guía no lo sustituye ni muestra credenciales reales.
+
+## Arquitectura y configuración
+
+Referencia de la ejecución objetivo, los archivos que intervienen y las variables de entorno. La topología con Vite se muestra en la sección de desarrollo.
+
+### Topología objetivo
 
 ```text
 Navegador → localhost:80 → Nginx
@@ -224,19 +265,40 @@ Solo Nginx publica un puerto. Django y PostgreSQL son accesibles por la red Comp
 
 PostgreSQL almacena cuentas, participantes, actividades, inscripciones y refresh tokens invalidados. El access se conserva en memoria en React; el refresh está en una cookie HttpOnly del navegador. Django es quien valida la identidad y aplica permisos.
 
-## Archivos de ejecución
+### Archivos de ejecución
 
-| Archivo | Responsabilidad |
-| --- | --- |
-| `backend/Dockerfile` | Python y dependencias, código Django y proceso Gunicorn con dos workers. |
-| `backend/docker-entrypoint.sh` | Aplica migraciones y ejecuta el proceso recibido con `exec`. El build normaliza LF. |
-| `frontend/dockerfile` | Multi-stage: dependencies instala con pnpm; development ejecuta Vite; build genera dist; production usa Nginx. El nombre está en minúsculas. |
-| `frontend/nginx.conf` | Archivos React, fallback SPA y proxy /api hacia Django. |
-| `compose.yaml` | Ejecución objetivo: db, api y nginx. |
-| `compose.dev.yaml` | Desarrollo con recarga: db, api y app. |
-| `compose.gunicorn.yaml` | Checkpoint histórico de Gunicorn sin frontend; API directa en 8000. |
+| Archivo                        | Responsabilidad                                                                                                                              |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `backend/Dockerfile`           | Python y dependencias, código Django y proceso Gunicorn con dos workers.                                                                     |
+| `backend/docker-entrypoint.sh` | Aplica migraciones y ejecuta el proceso recibido con `exec`. El build normaliza LF.                                                          |
+| `frontend/dockerfile`          | Multi-stage: dependencies instala con pnpm; development ejecuta Vite; build genera dist; production usa Nginx. El nombre está en minúsculas. |
+| `frontend/nginx.conf`          | Archivos React, fallback SPA y proxy /api hacia Django.                                                                                      |
+| `compose.yaml`                 | Ejecución objetivo: db, api y nginx.                                                                                                         |
+| `compose.dev.yaml`             | Desarrollo con recarga: db, api y app.                                                                                                       |
+| `compose.gunicorn.yaml`        | Checkpoint histórico de Gunicorn sin frontend; API directa en 8000.                                                                          |
 
-## Desarrollo con recarga
+### Configuración
+
+`.env.example` es la plantilla versionada; `.env` contiene la configuración local y no se versiona. Compose la usa para interpolar valores y el backend recibe sus variables mediante `env_file`. Fuera de Docker, Django puede leer el `.env` de la raíz.
+
+| Variable                                      | Uso                                                                                                        |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD | Nombre y credenciales de PostgreSQL.                                                                       |
+| POSTGRES_HOST / POSTGRES_PORT                 | Destino desde Django: db / 5432 dentro de Compose. Fuera de Docker usar un host accesible, como 127.0.0.1. |
+| DJANGO_SECRET_KEY                             | Secreto Django. La plantilla solo incluye un valor de laboratorio.                                         |
+| DJANGO_DEBUG                                  | Desarrollo; el Compose objetivo lo fuerza a false.                                                         |
+| DJANGO_ALLOWED_HOSTS                          | Hosts HTTP aceptados; el objetivo usa localhost,127.0.0.1,api.                                             |
+| JWT_SIGNING_KEY                               | Clave para firmar JWT; si falta se usa el secreto Django. Usar un secreto propio fuera de evaluación.      |
+| JWT_ACCESS_MINUTES / JWT_REFRESH_HOURS        | Duraciones, por defecto 5 minutos y 24 horas.                                                              |
+| AUTH_COOKIE_SECURE                            | false para HTTP local; true al desplegar con HTTPS.                                                        |
+| DJANGO_CSRF_TRUSTED_ORIGINS                   | Orígenes explícitos de Vite local para las operaciones con cookie.                                         |
+| VITE_PROXY_TARGET                             | Destino del proxy de desarrollo; no es una URL que deba conocer el navegador.                              |
+
+## Desarrollo y ejecuciones alternativas
+
+Estas opciones son alternativas al modo objetivo, no pasos adicionales de su arranque. Antes de cambiar de modo, detener el anterior. Cada modo Compose conserva su propia base, como se detalla en [Persistencia y diagnóstico](#persistencia-y-diagnóstico).
+
+### Desarrollo con recarga
 
 Detener el modo objetivo antes de cambiar: los Compose actuales comparten nombre de proyecto y servicios.
 
@@ -255,6 +317,18 @@ docker compose -f compose.dev.yaml exec api python manage.py seed_evaluation
 - Vite reenvía `/api` a `http://api:8000`; React sigue usando URLs relativas.
 - Código montado para recarga; dependencias Linux del frontend en volumen `frontend_node_modules`.
 
+#### Topología de desarrollo
+
+```text
+Navegador → localhost:5173 → app / Vite
+                               └── /api/* → api:8000 / Django runserver
+                                                        └── db:5432 / PostgreSQL
+Navegador → localhost:8000 ────────────────────┘
+Herramientas locales → localhost:5432 ────────────────────────┘
+```
+
+#### Dependencias del frontend en desarrollo
+
 Los scripts de arranque ya sincronizan el volumen automáticamente en desarrollo. Si se usa Compose manualmente, o aparece `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`, detener solo el frontend y sincronizar el volumen existente sin confirmaciones interactivas:
 
 ```powershell
@@ -267,6 +341,8 @@ Reconstruir una imagen no reemplaza el contenido de un volumen `node_modules` ya
 
 El servicio `app` fija `pnpm_config_store_dir=/root/.local/share/pnpm/store`, la misma ruta usada durante el build, tanto para instalar como para iniciar Vite. pnpm 11 requiere el prefijo `pnpm_config_` para esta configuración. Así el montaje de Windows no hace que pnpm cambie de store ni cree una caché de paquetes dentro del código fuente; tampoco es necesario pasar rutas Linux como argumentos desde Git Bash.
 
+#### Volver al modo objetivo
+
 Para volver al objetivo:
 
 ```powershell
@@ -276,17 +352,7 @@ docker compose up --build -d --wait
 
 Usar `-f compose.dev.yaml` también en `ps`, `logs`, `exec` y `down` mientras se trabaja en desarrollo. Este modo tiene una base distinta: las cuentas creadas en el objetivo no aparecen automáticamente aquí.
 
-### Topología de desarrollo
-
-```text
-Navegador → localhost:5173 → app / Vite
-                               └── /api/* → api:8000 / Django runserver
-                                                        └── db:5432 / PostgreSQL
-Navegador → localhost:8000 ────────────────────┘
-Herramientas locales → localhost:5432 ────────────────────────┘
-```
-
-## Puesta en marcha local avanzada sin contenedores de aplicación
+### Puesta en marcha local avanzada sin contenedores de aplicación
 
 Esta variante requiere Python 3.12 o posterior, Node compatible con el frontend, pnpm y una instancia de PostgreSQL accesible desde la computadora. Crear `.env` solo si falta, siguiendo el paso 1 de la opción manual.
 
@@ -294,7 +360,7 @@ Para el backend local ajustar `POSTGRES_HOST=127.0.0.1` (o el host real) en `.en
 
 Vite usa por defecto `http://127.0.0.1:8000` como proxy. Si se define `VITE_PROXY_TARGET` para el proceso local, usar esa dirección, no `api:8000`. El `.env` de la raíz es leído por Django y Compose; Vite carga los archivos de entorno de `frontend/` y las variables del proceso que lo inicia.
 
-### 1. Backend
+#### 1. Backend
 
 Desde la raíz, en macOS/Linux:
 
@@ -312,7 +378,7 @@ En Windows/PowerShell, usar `python -m venv .venv` y `.\.venv\Scripts\Activate.p
 
 Abrir [http://127.0.0.1:8000/](http://127.0.0.1:8000/) para la vista HTML clásica y [Swagger](http://127.0.0.1:8000/api/docs) para la API.
 
-### 2. Frontend
+#### 2. Frontend
 
 En otra terminal, desde la raíz:
 
@@ -324,7 +390,7 @@ pnpm dev
 
 Abrir [http://127.0.0.1:5173/](http://127.0.0.1:5173/). Usar el mismo host durante el flujo de autenticación y comprobar que el origen esté admitido por `DJANGO_CSRF_TRUSTED_ORIGINS`.
 
-## Checkpoint intermedio: API con Gunicorn
+### Checkpoint intermedio: API con Gunicorn
 
 `compose.gunicorn.yaml` permite probar el servidor de aplicación sin Vite ni Nginx. Detener antes el modo que esté activo:
 
@@ -336,24 +402,11 @@ docker compose -f compose.gunicorn.yaml exec api python manage.py seed_evaluatio
 
 La API queda publicada en [http://localhost:8000/](http://localhost:8000/), con PostgreSQL local en 5432. Usa su propio volumen. Detenerlo con `docker compose -f compose.gunicorn.yaml down` antes de cambiar de modo. La ejecución objetivo completa usa `compose.yaml`.
 
-## Configuración
+## Autenticación y API
 
-`.env.example` es la plantilla versionada; `.env` contiene la configuración local y no se versiona. Compose la usa para interpolar valores y el backend recibe sus variables mediante `env_file`. Fuera de Docker, Django puede leer el `.env` de la raíz.
+Referencia del contrato y las reglas del backend. Para verlas de forma explicativa en la interfaz, consultar la [guía de autenticación y seguridad](#guía-de-autenticación-y-seguridad).
 
-| Variable | Uso |
-| --- | --- |
-| POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD | Nombre y credenciales de PostgreSQL. |
-| POSTGRES_HOST / POSTGRES_PORT | Destino desde Django: db / 5432 dentro de Compose. Fuera de Docker usar un host accesible, como 127.0.0.1. |
-| DJANGO_SECRET_KEY | Secreto Django. La plantilla solo incluye un valor de laboratorio. |
-| DJANGO_DEBUG | Desarrollo; el Compose objetivo lo fuerza a false. |
-| DJANGO_ALLOWED_HOSTS | Hosts HTTP aceptados; el objetivo usa localhost,127.0.0.1,api. |
-| JWT_SIGNING_KEY | Clave para firmar JWT; si falta se usa el secreto Django. Usar un secreto propio fuera de evaluación. |
-| JWT_ACCESS_MINUTES / JWT_REFRESH_HOURS | Duraciones, por defecto 5 minutos y 24 horas. |
-| AUTH_COOKIE_SECURE | false para HTTP local; true al desplegar con HTTPS. |
-| DJANGO_CSRF_TRUSTED_ORIGINS | Orígenes explícitos de Vite local para las operaciones con cookie. |
-| VITE_PROXY_TARGET | Destino del proxy de desarrollo; no es una URL que deba conocer el navegador. |
-
-## Autenticación y autorización
+### Autenticación y autorización
 
 El login recibe usuario/contraseña. Devuelve access y datos de la cuenta; el refresh se entrega exclusivamente por cookie HttpOnly. React restaura la sesión al recargar mediante refresh y envía access en `Authorization: Bearer ...`.
 
@@ -371,7 +424,44 @@ Al cerrar sesión se elimina el estado de React, se invalida el refresh en Postg
 
 Si falla la conexión durante logout, React limpia la sesión local e informa que no pudo confirmar la invalidación remota, con opción de reintentar.
 
-## Verificación
+### API versionada (v1/v2)
+
+El backend expone dos versiones del contrato HTTP que conviven bajo el mismo proyecto. La v2 se incorporó sin sustituir la representación pública de la v1; Hito 2 cambia la autenticación de las operaciones privadas en ambas.
+
+- v1 mantiene `capacity` y `available_slots` en el nivel raíz de `Activity`.
+- v2 agrega `category` y agrupa el cupo en `availability`:
+  `{ "id": "...", "title": "...", "category": "General", "starts_at": "...", "availability": { "capacity": 20, "available_slots": 3 } }`.
+- `Enrollment` conserva `activity_id` y `enrolled_at`; los errores usan `code` y `message`, y la idempotencia es idéntica entre versiones.
+- La lógica de dominio y la persistencia son compartidas. Las vistas v2 extienden las v1 y cambian el serializador público y los metadatos de OpenAPI.
+
+| Método       | Endpoint                                 | Permiso                     |
+| ------------ | ---------------------------------------- | --------------------------- |
+| GET          | `/api/v1/activities/`                    | Público                     |
+| GET          | `/api/v1/activities/{activity_id}/`      | Público                     |
+| GET          | `/api/v1/participants/`                  | Público, consulta histórica |
+| GET          | `/api/v1/participants/{participant_id}/` | Público, consulta histórica |
+| GET          | `/api/v1/me/enrollments/`                | JWT y participante asociado |
+| PUT / DELETE | `/api/v1/me/enrollments/{activity_id}/`  | JWT y participante asociado |
+| GET          | `/api/v2/activities/`                    | Público                     |
+| POST         | `/api/v2/activities/`                    | JWT y staff                 |
+| GET          | `/api/v2/activities/{activity_id}/`      | Público                     |
+| GET          | `/api/v2/me/enrollments/`                | JWT y participante asociado |
+| PUT / DELETE | `/api/v2/me/enrollments/{activity_id}/`  | JWT y participante asociado |
+
+La documentación OpenAPI también se genera por versión:
+
+- [OpenAPI v1](http://localhost/api/v1/openapi.json): contrato v1.
+- [OpenAPI v2](http://localhost/api/v2/openapi.json): contrato v2.
+- [Esquema combinado](http://localhost/api/openapi.json): v1, v2 y autenticación.
+- [Swagger UI](http://localhost/api/docs): exploración del esquema combinado.
+
+En desarrollo se accede a las mismas rutas desde `http://localhost:8000` o mediante el proxy de `http://localhost:5173`. La suite comprueba regresión de v1, coexistencia entre versiones, estructuras OpenAPI e idempotencia cruzada de PUT/DELETE. Ver [API.md](API.md) para ejemplos completos y errores.
+
+## Pruebas y evaluación
+
+Los comandos siguientes comprueban backend y frontend; no son necesarios para el uso cotidiano después de levantar el proyecto.
+
+### Verificación
 
 ```powershell
 docker compose exec api python manage.py test
@@ -399,7 +489,11 @@ También se pueden ejecutar los controles frontend dentro del servicio app de de
 
 Consultar [API.md](API.md) para rutas y ejemplos, [la guía de evaluación](docs/hito-2-evaluacion.md), [los resultados comprobados](docs/hito-2-validacion.md) y [la línea base](docs/contracts/README.md) para comparar el contrato anterior.
 
-## Persistencia y diagnóstico
+## Operación y diagnóstico
+
+Comandos y referencias para revisar servicios, conservar datos y seguir una interacción. Si el problema es el volumen de dependencias de Vite, consultar [Dependencias del frontend en desarrollo](#dependencias-del-frontend-en-desarrollo).
+
+### Persistencia y diagnóstico
 
 ```powershell
 docker compose ps
@@ -414,52 +508,7 @@ docker compose up -d --wait
 
 No se necesita habilitar CORS para el flujo normal: la UI utiliza /api en el mismo origen mediante Nginx o el proxy Vite. Los logs de negocio usan un identificador de correlación y no registran contraseñas, tokens ni cookies.
 
-## API versionada (v1/v2)
-
-El backend expone dos versiones del contrato HTTP que conviven bajo el mismo proyecto. La v2 se incorporó sin sustituir la representación pública de la v1; Hito 2 cambia la autenticación de las operaciones privadas en ambas.
-
-- v1 mantiene `capacity` y `available_slots` en el nivel raíz de `Activity`.
-- v2 agrega `category` y agrupa el cupo en `availability`:
-  `{ "id": "...", "title": "...", "category": "General", "starts_at": "...", "availability": { "capacity": 20, "available_slots": 3 } }`.
-- `Enrollment` conserva `activity_id` y `enrolled_at`; los errores usan `code` y `message`, y la idempotencia es idéntica entre versiones.
-- La lógica de dominio y la persistencia son compartidas. Las vistas v2 extienden las v1 y cambian el serializador público y los metadatos de OpenAPI.
-
-| Método | Endpoint | Permiso |
-| --- | --- | --- |
-| GET | `/api/v1/activities/` | Público |
-| GET | `/api/v1/activities/{activity_id}/` | Público |
-| GET | `/api/v1/participants/` | Público, consulta histórica |
-| GET | `/api/v1/participants/{participant_id}/` | Público, consulta histórica |
-| GET | `/api/v1/me/enrollments/` | JWT y participante asociado |
-| PUT / DELETE | `/api/v1/me/enrollments/{activity_id}/` | JWT y participante asociado |
-| GET | `/api/v2/activities/` | Público |
-| POST | `/api/v2/activities/` | JWT y staff |
-| GET | `/api/v2/activities/{activity_id}/` | Público |
-| GET | `/api/v2/me/enrollments/` | JWT y participante asociado |
-| PUT / DELETE | `/api/v2/me/enrollments/{activity_id}/` | JWT y participante asociado |
-
-La documentación OpenAPI también se genera por versión:
-
-- [OpenAPI v1](http://localhost/api/v1/openapi.json): contrato v1.
-- [OpenAPI v2](http://localhost/api/v2/openapi.json): contrato v2.
-- [Esquema combinado](http://localhost/api/openapi.json): v1, v2 y autenticación.
-- [Swagger UI](http://localhost/api/docs): exploración del esquema combinado.
-
-En desarrollo se accede a las mismas rutas desde `http://localhost:8000` o mediante el proxy de `http://localhost:5173`. La suite comprueba regresión de v1, coexistencia entre versiones, estructuras OpenAPI e idempotencia cruzada de PUT/DELETE. Ver [API.md](API.md) para ejemplos completos y errores.
-
-## Punto de partida didáctico
-
-El proyecto conserva la vista HTML clásica y la implementación cliente como etapas comparables. Django produce HTML en su ruta `/`, accesible directamente en desarrollo o en el checkpoint Gunicorn; esa página sigue visible si se desactiva JavaScript.
-
-En cambio, `/` en la topología objetivo lo sirve Nginx con React compilado: no es la vista clásica ni renderizado del lado del servidor. El backend expone la API JSON documentada en [API.md](API.md), consumida por `frontend/`.
-
-## Instrucciones para agentes
-
-[AGENTS.md](AGENTS.md) contiene las decisiones persistentes del repositorio: stack, pnpm, estructura, aliases, Definition of Done y uso obligatorio de shadcn/ui. La skill [.agents/skills/ui-design/SKILL.md](.agents/skills/ui-design/SKILL.md) encapsula el procedimiento para tareas visuales: comprobar la instalación, reutilizar primitives, agregar solo las necesarias y validar accesibilidad y responsive.
-
-Esta separación mantiene las reglas generales visibles para cualquier tarea y carga el conocimiento de diseño cuando el trabajo involucra interfaz.
-
-## Trazabilidad de interacciones
+### Trazabilidad de interacciones
 
 La correlación transversal de la API no crea una v3 ni cambia los cuerpos de v1/v2:
 
@@ -467,3 +516,26 @@ La correlación transversal de la API no crea una v3 ni cambia los cuerpos de v1
 - Los logs tienen eventos estructurados: `request_received`, `participant_auth_checked`, `activity_lookup`, `enrollment_created`, `enrollment_reused`, `enrollment_rejected`, `enrollment_cancelled` y `request_completed`, con campos estables y el mismo `correlation_id`.
 - El identificador permite reconstruir entrada, decisión y salida de una interacción: por ejemplo, `demo-42` en `request_received`, `enrollment_created` y `request_completed=201`.
 - No se registran secretos ni payloads. El [README del backend](backend/README.md) detalla campos, rotación del archivo, eventos y búsqueda de una interacción.
+
+## Contexto y documentación
+
+### Punto de partida didáctico
+
+El proyecto conserva la vista HTML clásica y la implementación cliente como etapas comparables. Django produce HTML en su ruta `/`, accesible directamente en desarrollo o en el checkpoint Gunicorn; esa página sigue visible si se desactiva JavaScript.
+
+En cambio, `/` en la topología objetivo lo sirve Nginx con React compilado: no es la vista clásica ni renderizado del lado del servidor. El backend expone la API JSON documentada en [API.md](API.md), consumida por `frontend/`.
+
+### Instrucciones para agentes
+
+[AGENTS.md](AGENTS.md) contiene las decisiones persistentes del repositorio: stack, pnpm, estructura, aliases, Definition of Done y uso obligatorio de shadcn/ui. La skill [.agents/skills/ui-design/SKILL.md](.agents/skills/ui-design/SKILL.md) encapsula el procedimiento para tareas visuales: comprobar la instalación, reutilizar primitives, agregar solo las necesarias y validar accesibilidad y responsive.
+
+Esta separación mantiene las reglas generales visibles para cualquier tarea y carga el conocimiento de diseño cuando el trabajo involucra interfaz.
+
+### Documentación relacionada
+
+- [Frontend](frontend/README.md): desarrollo y organización de la aplicación React.
+- [Backend](backend/README.md): ejecución de Django y detalles de implementación y logs.
+- [Contrato HTTP](API.md): rutas, representaciones y ejemplos de la API.
+- [Guía de evaluación del Hito 2](docs/hito-2-evaluacion.md): escenarios para demostrar la entrega.
+- [Resultados de validación](docs/hito-2-validacion.md): comprobaciones registradas.
+- [Línea base del contrato](docs/contracts/README.md): referencia anterior para detectar regresiones.
