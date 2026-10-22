@@ -66,6 +66,8 @@ describe("sesión en memoria", () => {
     expect(await refresh).toBe(false);
     expect(session.getSession().status).toBe("anonymous");
     expect(session.getSession().access).toBeNull();
+    const { getDiagnostics } = await import("../src/lib/sessionDiagnostics");
+    expect(getDiagnostics().refresh).toBe("closed");
   });
 
   it("informa cuando no puede confirmar el logout remoto", async () => {
@@ -131,6 +133,11 @@ describe("cliente HTTP", () => {
     ]);
     expect(responses).toEqual([{ ok: true }, { ok: true }]);
     expect(refreshes).toBe(1);
+    const { getDiagnostics } = await import("../src/lib/sessionDiagnostics");
+    expect(
+      getDiagnostics().events.filter((event) => event.exchange?.retry),
+    ).toHaveLength(2);
+    expect(getDiagnostics().refresh).toBe("accepted");
   });
 
   it("no reintenta errores de negocio y maneja 204 sin JSON", async () => {

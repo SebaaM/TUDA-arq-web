@@ -1,3 +1,7 @@
+import { observedFetch } from "@source/lib/observedFetch";
+import { noteDiagnostic, observeRefresh } from "@source/lib/sessionDiagnostics";
+import { readCsrfCookie } from "@source/lib/cookies";
+
 export type SessionUser = {
   id: number;
   username: string;
@@ -55,6 +59,11 @@ function publish(next: Session) {
 export function clearSession(message: string | null = null) {
   generation += 1;
   publish({ status: "anonymous", access: null, user: null, message });
+  noteDiagnostic(
+    "access",
+    "Access retirado de memoria",
+    "El cliente deja de enviarlo. Un access ya emitido puede seguir siendo válido en el servidor hasta su exp.",
+  );
 }
 
 export async function parseResponse<T>(response: Response): Promise<T> {
@@ -72,24 +81,31 @@ export async function parseResponse<T>(response: Response): Promise<T> {
 }
 
 async function authPost<T>(action: string, body?: unknown): Promise<T> {
+  const previousCsrf = readCsrfCookie(document.cookie);
   await parseResponse(
-    await fetch("/api/auth/csrf/", {
+    await observedFetch("/api/auth/csrf/", {
       credentials: "same-origin",
       cache: "no-store",
     }),
   );
-  const csrf = document.cookie
-    .split("; ")
-    .find((item) => item.startsWith("csrftoken="))
-    ?.slice("csrftoken=".length);
+  const csrf = readCsrfCookie(document.cookie);
+  noteDiagnostic(
+    "csrf",
+    csrf ? "CSRF preparado" : "CSRF no observable",
+    csrf
+      ? previousCsrf === csrf
+        ? "Cookie reutilizada: se envía también en X-CSRFToken."
+        : "El navegador recibió una cookie CSRF. El POST enviará X-CSRFToken."
+      : "No se encontró csrftoken en document.cookie.",
+  );
   return parseResponse<T>(
-    await fetch(`/api/auth/${action}/`, {
+    await observedFetch(`/api/auth/${action}/`, {
       method: "POST",
       credentials: "same-origin",
       cache: "no-store",
       headers: {
         "Content-Type": "application/json",
-        "X-CSRFToken": decodeURIComponent(csrf ?? ""),
+        "X-CSRFToken": csrf ?? "",
       },
       body: body === undefined ? undefined : JSON.stringify(body),
     }),
@@ -106,6 +122,19 @@ export async function login(username: string, password: string) {
   });
   if (currentGeneration !== generation) return;
   publish({ ...result, status: "authenticated", message: null });
+  observeRefresh("accepted");
+  noteDiagnostic(
+    "refresh",
+    "Login aceptado",
+    "El servidor responde con access en JSON y configura refresh_token como cookie HttpOnly.",
+    "ok",
+  );
+  noteDiagnostic(
+    "access",
+    "Access recibido en memoria",
+    "Se enviará como Authorization: Bearer en peticiones autenticadas.",
+    "ok",
+  );
 }
 
 export function refreshSession(): Promise<boolean> {
@@ -116,9 +145,35 @@ export function refreshSession(): Promise<boolean> {
       const result = await authPost<SessionResponse>("refresh");
       if (generation !== currentGeneration) return false;
       publish({ ...result, status: "authenticated", message: null });
+      observeRefresh("accepted");
+      noteDiagnostic(
+        "refresh",
+        "Refresh aceptado por Django",
+        "Se obtuvo un nuevo access. En este proyecto el refresh no rota ni extiende su vencimiento.",
+        "ok",
+      );
+      noteDiagnostic(
+        "access",
+        "Access actualizado",
+        "La respuesta reemplazó el access en memoria; no se guarda en localStorage.",
+        "ok",
+      );
       return true;
     } catch (error) {
       if (generation === currentGeneration) {
+        observeRefresh(
+          error instanceof HttpError && error.status === 401
+            ? "invalid"
+            : "uncertain",
+        );
+        noteDiagnostic(
+          "refresh",
+          "No se pudo renovar",
+          error instanceof HttpError && error.status === 401
+            ? "El servidor rechazó el refresh: puede faltar, haber vencido o estar invalidado."
+            : "No se puede confirmar el estado del refresh por un error de red o de validación.",
+          "error",
+        );
         const message =
           session.status === "authenticated"
             ? "Tu sesión ya no está disponible. Iniciá sesión nuevamente."
@@ -140,13 +195,27 @@ export function refreshSession(): Promise<boolean> {
 export async function logout() {
   // Invalidate local requests before awaiting the server or an in-flight refresh.
   clearSession();
+  observeRefresh("uncertain");
   try {
     await authPost<void>("logout");
   } catch {
+    noteDiagnostic(
+      "session",
+      "Logout sin confirmación remota",
+      "La sesión local está limpia; no se pudo confirmar la invalidación del refresh.",
+      "error",
+    );
     clearSession(
       "Se limpió la sesión local, pero no se pudo confirmar su cierre en el servidor. Reintentá cerrar sesión cuando haya conexión.",
     );
     return false;
   }
+  observeRefresh("closed");
+  noteDiagnostic(
+    "refresh",
+    "Logout confirmado",
+    "Django invalidó el refresh de esta sesión y ordenó eliminar su cookie HttpOnly.",
+    "ok",
+  );
   return true;
 }

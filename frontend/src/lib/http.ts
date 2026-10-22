@@ -6,6 +6,8 @@ import {
   parseResponse,
   refreshSession,
 } from "@source/features/auth/session";
+import { observedFetch } from "@source/lib/observedFetch";
+import { noteDiagnostic } from "@source/lib/sessionDiagnostics";
 
 export async function request<T>(
   path: string,
@@ -15,13 +17,17 @@ export async function request<T>(
   const originalUser = getSession().user?.id;
   const originalGeneration = getSessionGeneration();
   const originalAccess = getSession().access;
-  async function send() {
+  async function send(retry = false) {
     const headers = new Headers(init.headers);
     if (init.body !== undefined)
       headers.set("Content-Type", "application/json");
     if (authenticated && getSession().access)
       headers.set("Authorization", `Bearer ${getSession().access}`);
-    return fetch(path, { ...init, headers, credentials: "same-origin" });
+    return observedFetch(
+      path,
+      { ...init, headers, credentials: "same-origin" },
+      retry,
+    );
   }
   let response = await send();
   if (authenticated && response.status === 401) {
@@ -35,12 +41,18 @@ export async function request<T>(
         "La sesión cambió. Volvé a intentar la operación.",
       );
     }
+    noteDiagnostic(
+      "access",
+      "API respondió 401",
+      "El cliente intentará renovar el access y repetir la solicitud una sola vez.",
+      "error",
+    );
     const renewed =
       getSession().access !== originalAccess && getSession().access !== null
         ? true
         : await refreshSession();
     if (renewed && getSession().user?.id === originalUser)
-      response = await send();
+      response = await send(true);
   }
   if (
     authenticated &&
