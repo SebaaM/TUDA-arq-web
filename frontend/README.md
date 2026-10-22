@@ -23,6 +23,8 @@ pnpm dev
 
 - auth: login, logout y estado de sesión en memoria mediante un store externo React.
 - activities: listado y detalle públicos, creación para staff y flujo de inscripciones propias.
+- auth-guide: guía pública de JWT, refresh HttpOnly y CSRF, accesible desde el encabezado en `/#guia-autenticacion`. Tres diagramas de secuencia con alternativa textual responsive; no usa credenciales reales ni dispara demostraciones.
+- session-inspector: panel **Sesión en vivo** para observar los intercambios reales de la pestaña, separado de la guía explicativa.
 - lib/http: Bearer, normalización de errores, respuesta 204 y renovación compartida con un solo reintento.
 
 Al recargar, auth intenta restaurar la sesión mediante la cookie HttpOnly. El access no se persiste en almacenamiento del navegador. Los cambios de usuario reinician los componentes con datos privados.
@@ -36,7 +38,7 @@ pnpm test
 pnpm build
 ```
 
-Vitest prueba renovaciones simultáneas, respuestas tardías tras logout, fallos de red, 401 y 204. La UI reutiliza primitives shadcn y tokens del proyecto.
+Vitest prueba renovaciones simultáneas, respuestas tardías tras logout, fallos de red, 401 y 204. También verifica la navegación de la guía, sus tres flujos y la representación textual accesible sin sesión. La UI reutiliza primitives shadcn y tokens del proyecto.
 
 frontend/dockerfile usa los targets dependencies, development, build y production. En el objetivo Nginx sirve dist/ y no se ejecuta Vite.
 

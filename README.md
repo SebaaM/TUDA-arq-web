@@ -27,6 +27,21 @@ Al cerrar sesión, el historial distingue la limpieza local del access de la con
 del logout; un access ya emitido puede seguir aceptándose hasta su vencimiento. La decodificación
 del JWT en el panel es informativa: la validación de firma y permisos sigue a cargo de Django.
 
+## Guía de autenticación y seguridad
+
+El enlace **Guía de autenticación** del encabezado abre una sección pública e independiente
+en `/#guia-autenticacion` (por ejemplo, [http://localhost/#guia-autenticacion](http://localhost/#guia-autenticacion)
+en el modo objetivo). Explica las diferencias entre access JWT, refresh HttpOnly y CSRF, con
+tres diagramas: inicio de sesión, renovación con un solo reintento y cierre de sesión. Incluye
+los límites de seguridad y las diferencias entre el laboratorio HTTP y un despliegue HTTPS.
+
+En escritorio se muestran secuencias entre navegador, Django y PostgreSQL; en móvil los
+mismos pasos se presentan como una lista vertical, también disponible para lectores de
+pantalla. La navegación conserva el historial del navegador y permite volver a actividades.
+No agrega dependencias ni cambia la autenticación. Los tiempos son los valores por defecto,
+no una medición de la sesión. Para observar los intercambios reales se conserva el panel
+**Sesión en vivo** descrito arriba: la guía no lo sustituye ni muestra credenciales reales.
+
 ## Opción 1: arranque automático con scripts
 
 ### Windows
